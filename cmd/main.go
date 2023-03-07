@@ -1,21 +1,28 @@
 package main
 
 import (
-	"crud-books/gofile"
+	"crud-books/config"
 	"crud-books/handlers"
 	"crud-books/mongodb"
 	"crud-books/server"
+	gofile "crud-books/service"
 	"crud-books/storage"
 	"log"
 )
 
 func main() {
-	db, err := mongodb.New("user", "password", "dsn")
+	cfg, err := config.New()
+	if err != nil {
+		log.Fatalf("config error: %v", err)
+	}
+
+	db, err := mongodb.New(cfg.DatabaseLogin, cfg.DatabasePwd, cfg.DatabaseName, cfg.DatabaseHost, cfg.DatabasePort)
 	if err != nil {
 		log.Fatalf("Database init failed: %v", err)
 	}
 
-	service := gofile.New("API_KEY")
+	service := gofile.New(cfg.StorageApiKey)
+
 	strg, err := storage.New(service)
 	if err != nil {
 		log.Fatalf("storage error: %v", err)
