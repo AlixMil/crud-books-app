@@ -1,12 +1,16 @@
 package storageService
 
 import (
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // func TestService_GetServerToUpload(t *testing.T) {
@@ -89,12 +93,69 @@ func TestService_UploadFile_GetServerToUploadRequestError(t *testing.T) {
 	assert.Error(t, err, "get server error: status code 404")
 }
 
-func TestService_UploadFile_GetServerToUpload(t *testing.T) {
-	s := New("jfaksjdkjas")
-	mockServer := givenTestServer(alwaysNotFoundHandler())
-	urlGetServerToUpload = mockServer.URL
+// func TestService_UploadFile_GetServerToUpload(t *testing.T) {
+// 	s := New("jfaksjdkjas")
+// 	mockServer := givenTestServer(alwaysNotFoundHandler())
+// 	urlGetServerToUpload = mockServer.URL
 
-	_, err := s.UploadFile([]byte{1, 2, 3, 4})
+// 	_, err := s.UploadFile([]byte{1, 2, 3, 4})
 
-	assert.Error(t, err, "get server error: status code 404")
+// 	assert.Error(t, err, "get server error: status code 404")
+// }
+
+// {
+//     "msg": "OK",
+//     "server_time": "2017-08-11 04:29:54",
+//     "status": 200,
+//     "sess_id": "1cvxk3uo91qtafcx8k7vptntn65nek1z2xybg4sicmk7jjbl5n",
+//     "result": "https://wwwNNN.ucdn.to/cgi-bin/upload.cgi"
+// }
+
+func handlerHelper(t *testing.T, path string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		file, err := os.OpenFile(path, os.O_RDONLY, 0777)
+		assert.NoError(t, err)
+		defer file.Close()
+		responseFromFile, err := io.ReadAll(file)
+		assert.NoError(t, err)
+		w.Write(responseFromFile)
+	})
+}
+
+func getServerToUploadHandler(t *testing.T, url string) http.Handler {
+	fileName := "./testsData/getServerToUploadSuccessResponse.json"
+
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0777)
+	require.NoError(t, err)
+	defer file.Close()
+	j, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	var v getServerUploadResponse
+	err = json.Unmarshal(j, &v)
+	require.NoError(t, err)
+	v.Result = url
+
+	r, err := json.Marshal(v)
+	require.NoError(t, err)
+	err = os.WriteFile(fileName, r, 0777)
+	require.NoError(t, err)
+
+	return handlerHelper(t, fileName)
+}
+
+func uploadFileServerHandler(t *testing.T) http.Handler {
+	return handlerHelper(t, "./testsData/uploadFileServerResponse.json")
+}
+
+func TestService_UploadFile_Success(t *testing.T) {
+	s := New("asjdkasjdk")
+	mockUploadServer := givenTestServer(uploadFileServerHandler(t))
+	mockGetServer := givenTestServer(getServerToUploadHandler(t, mockUploadServer.URL))
+
+	urlGetServerToUpload = mockGetServer.URL
+
+	got, err := s.UploadFile([]byte{1, 2, 3})
+	require.NoError(t, err)
+	assert.Equal(t, "yzanp0ps7sgl", got)
 }

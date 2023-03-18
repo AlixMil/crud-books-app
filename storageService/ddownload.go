@@ -84,7 +84,7 @@ func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
 	var serverUpload getServerUploadResponse
 	err = json.Unmarshal(jsonResponse, &serverUpload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("json unmarshal error: %w", err)
 	}
 
 	return &UploadServerSummary{
@@ -152,6 +152,10 @@ func (s Service) UploadFile(file []byte) (string, error) {
 	err = json.Unmarshal(jsonResponse, &uploadResp)
 	if err != nil {
 		return "", err
+	}
+
+	if len(uploadResp) == 0 {
+		return "", fmt.Errorf("empty upload response, error: %w", err)
 	}
 
 	return uploadResp[0].FileCode, nil
