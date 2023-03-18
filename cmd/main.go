@@ -5,8 +5,7 @@ import (
 	"crud-books/handlers"
 	"crud-books/mongodb"
 	"crud-books/server"
-	gofile "crud-books/service"
-	"crud-books/storage"
+	storageService "crud-books/storageService"
 	"log"
 )
 
@@ -21,20 +20,20 @@ func main() {
 		log.Fatalf("Database init failed: %v", err)
 	}
 
-	service := gofile.New(cfg.StorageApiKey)
+	storage := storageService.New(cfg.StorageServiceApiKey)
 
-	strg, err := storage.New(service)
-	if err != nil {
-		log.Fatalf("storage error: %v", err)
-	}
+	// strg, err := storage.New(service)
+	// if err != nil {
+	// 	log.Fatalf("storage error: %v", err)
+	// }
 
-	hndlrs, err := handlers.New(db, strg)
+	handlers, err := handlers.New(db, storage)
 	if err != nil {
 		log.Fatalf("handlers init: %v", err)
 	}
 
 	srv := server.New("4001")
-	srv.InitHandlers(hndlrs)
+	srv.InitHandlers(handlers)
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server is not started. Error: %v", err)
 	}

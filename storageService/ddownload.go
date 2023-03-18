@@ -1,17 +1,31 @@
-package storageservice
+package storageService
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 )
 
+const (
+	apiKeyParamName = "key"
+)
+
+// URLs for requests
+var (
+	urlGetServerToUpload = "https://api-v2.ddownload.com/api/upload"
+	urlAccountInfo       = "https://api-v2.ddownload.com/api/account/info"
+	urlGetFileInfo       = "https://api-v2.ddownload.com/api/file/info"
+	urlGetFilesList      = "https://api-v2.ddownload.com/api/file/list"
+	urlRenameFile        = "https://api-v2.ddownload.com/api/file/rename"
+)
+
 type Service struct {
-	ServiceName      string
-	apiKey           string
-	pathsForRequests map[string]string
+	ServiceName string
+	apiKey      string
+	client      *http.Client
 }
 
 type getServerUploadResponse struct {
@@ -27,32 +41,45 @@ type UploadServerSummary struct {
 	Server string
 }
 
-func (s Service) getServerToUpload() (UploadServerSummary, error) {
-	client := http.Client{}
-	req, err := http.NewRequest(http.MethodGet, s.pathsForRequests["GetServerToUpload"], nil)
+func doRequestWQuery(method, path, queryParamName, queryParamVal string) (*http.Request, error) {
+	req, err := http.NewRequest(method, path, nil)
 	if err != nil {
-		return UploadServerSummary{}, err
+		return &http.Request{}, err
 	}
 	q := req.URL.Query()
-	q.Add("key", s.apiKey)
+	q.Add(queryParamName, queryParamVal)
 	req.URL.RawQuery = q.Encode()
-	res, err := client.Do(req)
+	return req, nil
+}
+
+func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
+	// Do request to server for getting actual server and session. Needed for upload file to correct server with session
+	req, err := doRequestWQuery(http.MethodGet, urlGetServerToUpload, apiKeyParamName, s.apiKey)
 	if err != nil {
-		return UploadServerSummary{}, err
+		return &UploadServerSummary{}, err
+	}
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("status code %d", http.StatusNotFound)
 	}
 	defer res.Body.Close()
-	jsonResponse, err := io.ReadAll(req.Body)
+
+	jsonResponse, err := io.ReadAll(res.Body)
 	if err != nil {
-		return UploadServerSummary{}, err
+		return nil, err
 	}
 
 	var serverUpload getServerUploadResponse
 	err = json.Unmarshal(jsonResponse, &serverUpload)
 	if err != nil {
-		return UploadServerSummary{}, err
+		return nil, err
 	}
 
-	return UploadServerSummary{
+	return &UploadServerSummary{
 		SessId: serverUpload.SessID,
 		Server: serverUpload.Result,
 	}, nil
@@ -63,35 +90,50 @@ type UploadFileResponse []struct {
 	FileStatus string `json:"file_status"`
 }
 
-func (s Service) UploadFile(file []byte) (string, error) {
-	server, err := s.getServerToUpload()
-	if err != nil {
-		return "", err
-	}
+func getBodyWriter(file []byte, sessId, utype string) (*bytes.Buffer, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	fileWriter, err := writer.CreateFormField("file")
 	if err != nil {
-		return "", err
+		return body, err
 	}
-	fileWriter.Write(file)
-	writer.WriteField("sess_id", server.SessId)
-	writer.WriteField("utype", "prem")
+	_, err = fileWriter.Write(file)
+	if err != nil {
+		return body, err
+	}
 
-	// data := url.Values{}
-	// data.Set("sess_id", server.SessId)
-	// data.Set("utype", "prem")
+	err = writer.WriteField("sess_id", sessId)
+	if err != nil {
+		return body, err
+	}
+	err = writer.WriteField("utype", utype)
+	if err != nil {
+		return body, err
+	}
+	return body, nil
+}
 
-	client := http.Client{}
+func (s Service) UploadFile(file []byte) (string, error) {
+	uploadServerSummary, err := s.GetServerToUpload()
+	if err != nil {
+		return "", fmt.Errorf("get server error: %v", err)
+	}
 
-	req, err := http.NewRequest(http.MethodPost, server.Server, body)
+	body, err := getBodyWriter(file, uploadServerSummary.SessId, "prem")
 	if err != nil {
 		return "", err
 	}
-	res, err := client.Do(req)
+
+	req, err := http.NewRequest(http.MethodPost, uploadServerSummary.Server, body)
 	if err != nil {
 		return "", err
 	}
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
 	jsonResponse, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
@@ -110,15 +152,8 @@ func (s Service) UploadFile(file []byte) (string, error) {
 
 func New(apikey string) Service {
 	s := Service{
-		ServiceName: "ddownload",
-		apiKey:      apikey,
-		pathsForRequests: map[string]string{
-			"GetServerToUpload": "https://api-v2.ddownload.com/api/upload",
-			"accountInfo":       "https://api-v2.ddownload.com/api/account/info",
-			"getFileInfo":       "https://api-v2.ddownload.com/api/file/info",
-			"getFilesList":      "https://api-v2.ddownload.com/api/file/list",
-			"renameFile":        "https://api-v2.ddownload.com/api/file/rename",
-		},
+		apiKey: apikey,
+		client: http.DefaultClient,
 	}
 
 	return s

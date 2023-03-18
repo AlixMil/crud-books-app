@@ -23,10 +23,12 @@ func New(port string) Server {
 
 type Handlers interface {
 	MainPage(c echo.Context) error
+	UploadFile(c echo.Context) error
 }
 
 func (s Server) InitHandlers(handlers Handlers) {
 	s.server.Add(http.MethodGet, "/", handlers.MainPage)
+	s.server.Add(http.MethodPost, "/files", handlers.UploadFile)
 }
 
 func (s Server) Start() error {
