@@ -2,6 +2,7 @@ package storageService
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -111,8 +112,24 @@ func TestService_UploadFile_GetServerToUploadRequestError(t *testing.T) {
 //     "result": "https://wwwNNN.ucdn.to/cgi-bin/upload.cgi"
 // }
 
-func handlerHelper(t *testing.T, path string) http.Handler {
+type handlerOption func(w http.ResponseWriter, r *http.Request) error
+
+func checkMultipartBody(w http.ResponseWriter, r *http.Request) error {
+	defer r.Body.Close()
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	return nil
+}
+
+func handlerHelper(t *testing.T, path string, options ...handlerOption) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, f := range options {
+			err := f(w, r)
+			assert.NoError(t, err)
+		}
 		file, err := os.OpenFile(path, os.O_RDONLY, 0777)
 		assert.NoError(t, err)
 		defer file.Close()
@@ -145,7 +162,7 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 }
 
 func uploadFileServerHandler(t *testing.T) http.Handler {
-	return handlerHelper(t, "./testsData/uploadFileServerResponse.json")
+	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody)
 }
 
 func TestService_UploadFile_Success(t *testing.T) {
