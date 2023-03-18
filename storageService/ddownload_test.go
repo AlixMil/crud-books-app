@@ -1,7 +1,9 @@
 package storageService
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -111,8 +113,37 @@ func TestService_UploadFile_GetServerToUploadRequestError(t *testing.T) {
 //     "result": "https://wwwNNN.ucdn.to/cgi-bin/upload.cgi"
 // }
 
-func handlerHelper(t *testing.T, path string) http.Handler {
+type handlerOption func(w http.ResponseWriter, r *http.Request) error
+
+func checkMultipartBody(t *testing.T, expectFileData []byte) handlerOption {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		r.ParseMultipartForm(0)
+
+		buff := bytes.NewBuffer([]byte{})
+		for _, fileHeaders := range r.MultipartForm.File {
+			for _, fh := range fileHeaders {
+				f, err := fh.Open()
+				if err != nil {
+					return fmt.Errorf("open file `%s`: %w", fh.Filename, err)
+				}
+				_, err = buff.ReadFrom(f)
+				if err != nil {
+					return fmt.Errorf("read from file `%s`: %w", fh.Filename, err)
+				}
+
+			}
+		}
+		require.Equal(t, string(expectFileData), buff.String())
+		return nil
+	}
+}
+
+func handlerHelper(t *testing.T, path string, options ...handlerOption) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, f := range options {
+			err := f(w, r)
+			assert.NoError(t, err)
+		}
 		file, err := os.OpenFile(path, os.O_RDONLY, 0777)
 		assert.NoError(t, err)
 		defer file.Close()
@@ -144,18 +175,19 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 	return handlerHelper(t, fileName)
 }
 
-func uploadFileServerHandler(t *testing.T) http.Handler {
-	return handlerHelper(t, "./testsData/uploadFileServerResponse.json")
+func uploadFileServerHandler(t *testing.T, body []byte) http.Handler {
+	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody(t, body))
 }
 
 func TestService_UploadFile_Success(t *testing.T) {
 	s := New("asjdkasjdk")
-	mockUploadServer := givenTestServer(uploadFileServerHandler(t))
+	uploadBody := []byte("Hello, World!")
+	mockUploadServer := givenTestServer(uploadFileServerHandler(t, uploadBody))
 	mockGetServer := givenTestServer(getServerToUploadHandler(t, mockUploadServer.URL))
 
 	urlGetServerToUpload = mockGetServer.URL
 
-	got, err := s.UploadFile([]byte{1, 2, 3})
+	got, err := s.UploadFile(uploadBody)
 	require.NoError(t, err)
 	assert.Equal(t, "yzanp0ps7sgl", got)
 }
