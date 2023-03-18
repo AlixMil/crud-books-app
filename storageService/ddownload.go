@@ -98,27 +98,31 @@ type UploadFileResponse []struct {
 	FileStatus string `json:"file_status"`
 }
 
-func getBodyWriter(file []byte, sessId, utype string) (*bytes.Buffer, error) {
+func getBodyWriter(file []byte, sessId, utype string) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	fileWriter, err := writer.CreateFormField("file")
+	defer writer.Close()
+
+	fileWriter, err := writer.CreateFormFile("file", "file")
 	if err != nil {
-		return body, err
+		return body, "", err
 	}
+
 	_, err = fileWriter.Write(file)
 	if err != nil {
-		return body, err
+		return body, "", err
 	}
 
 	err = writer.WriteField("sess_id", sessId)
 	if err != nil {
-		return body, err
+		return body, "", err
 	}
 	err = writer.WriteField("utype", utype)
 	if err != nil {
-		return body, err
+		return body, "", err
 	}
-	return body, nil
+
+	return body, writer.FormDataContentType(), nil
 }
 
 func (s Service) UploadFile(file []byte) (string, error) {
@@ -127,7 +131,7 @@ func (s Service) UploadFile(file []byte) (string, error) {
 		return "", fmt.Errorf("get server error: %v", err)
 	}
 
-	body, err := getBodyWriter(file, uploadServerSummary.SessId, "prem")
+	body, contentType, err := getBodyWriter(file, uploadServerSummary.SessId, "prem")
 	if err != nil {
 		return "", err
 	}
@@ -136,6 +140,7 @@ func (s Service) UploadFile(file []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	req.Header.Add("Content-Type", contentType)
 
 	res, err := s.client.Do(req)
 	if err != nil {
