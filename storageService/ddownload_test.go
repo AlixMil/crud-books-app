@@ -1,6 +1,7 @@
 package storageService
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -114,14 +115,27 @@ func TestService_UploadFile_GetServerToUploadRequestError(t *testing.T) {
 
 type handlerOption func(w http.ResponseWriter, r *http.Request) error
 
-func checkMultipartBody(w http.ResponseWriter, r *http.Request) error {
-	defer r.Body.Close()
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("read body: %w", err)
-	}
+func checkMultipartBody(t *testing.T, expectFileData []byte) handlerOption {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		r.ParseMultipartForm(0)
 
-	return nil
+		buff := bytes.NewBuffer([]byte{})
+		for _, fileHeaders := range r.MultipartForm.File {
+			for _, fh := range fileHeaders {
+				f, err := fh.Open()
+				if err != nil {
+					return fmt.Errorf("open file `%s`: %w", fh.Filename, err)
+				}
+				_, err = buff.ReadFrom(f)
+				if err != nil {
+					return fmt.Errorf("read from file `%s`: %w", fh.Filename, err)
+				}
+
+			}
+		}
+		require.Equal(t, string(expectFileData), buff.String())
+		return nil
+	}
 }
 
 func handlerHelper(t *testing.T, path string, options ...handlerOption) http.Handler {
@@ -161,18 +175,19 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 	return handlerHelper(t, fileName)
 }
 
-func uploadFileServerHandler(t *testing.T) http.Handler {
-	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody)
+func uploadFileServerHandler(t *testing.T, body []byte) http.Handler {
+	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody(t, body))
 }
 
 func TestService_UploadFile_Success(t *testing.T) {
 	s := New("asjdkasjdk")
-	mockUploadServer := givenTestServer(uploadFileServerHandler(t))
+	uploadBody := []byte("Hello, World!")
+	mockUploadServer := givenTestServer(uploadFileServerHandler(t, uploadBody))
 	mockGetServer := givenTestServer(getServerToUploadHandler(t, mockUploadServer.URL))
 
 	urlGetServerToUpload = mockGetServer.URL
 
-	got, err := s.UploadFile([]byte{1, 2, 3})
+	got, err := s.UploadFile(uploadBody)
 	require.NoError(t, err)
 	assert.Equal(t, "yzanp0ps7sgl", got)
 }
