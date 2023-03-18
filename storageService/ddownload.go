@@ -52,6 +52,14 @@ func doRequestWQuery(method, path, queryParamName, queryParamVal string) (*http.
 	return req, nil
 }
 
+func doRequestWBody(method, path string, body *bytes.Buffer) (*http.Request, error) {
+	req, err := http.NewRequest(method, path, body)
+	if err != nil {
+		return &http.Request{}, err
+	}
+	return req, nil
+}
+
 func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
 	// Do request to server for getting actual server and session. Needed for upload file to correct server with session
 	req, err := doRequestWQuery(http.MethodGet, urlGetServerToUpload, apiKeyParamName, s.apiKey)
@@ -124,7 +132,7 @@ func (s Service) UploadFile(file []byte) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, uploadServerSummary.Server, body)
+	req, err := doRequestWBody(http.MethodPost, uploadServerSummary.Server, body)
 	if err != nil {
 		return "", err
 	}
