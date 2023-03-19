@@ -60,7 +60,7 @@ func Test_DoRequestWQuery(t *testing.T) {
 	mockServer := givenTestServer(parsedRequestHandler(apiKeyVal))
 	urlForTest := mockServer.URL
 
-	req, err := doRequestWQuery(http.MethodGet, urlForTest, apiKeyParamName, apiKeyVal)
+	req, err := doRequest(http.MethodGet, urlForTest, []queryParams{{queryParamName: apiKeyParamName, queryParamVal: apiKeyVal}}, &bytes.Buffer{})
 	if err != nil {
 		t.Errorf("request forming was error: %s", err.Error())
 	}
@@ -196,4 +196,33 @@ func TestService_UploadFile_Success(t *testing.T) {
 	got, err := s.UploadFile(uploadBody)
 	require.NoError(t, err)
 	assert.Equal(t, "yzanp0ps7sgl", got)
+}
+
+func checkGetFileInfoRequest(t *testing.T, expectQueryData []queryParams) handlerOption {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		for _, q := range expectQueryData {
+			require.Equal(t, q.queryParamVal, r.URL.Query().Get(q.queryParamName))
+		}
+		return nil
+	}
+}
+
+func succesGetFileInfoHandler(t testing.T, fileCode, apiKey string) http.Handler {
+	return handlerHelper(&t, "./testsData/getFileInfoResponse.json", checkGetFileInfoRequest(&t, []queryParams{
+		{queryParamName: fileCodeParamName, queryParamVal: fileCode},
+		{queryParamName: apiKeyParamName, queryParamVal: apiKey},
+	}))
+}
+
+func TestService_GetFileInfo_Success(t *testing.T) {
+	s := New("asjdkasjdk")
+	fileCode := "1ahye98t2y6r"
+	mockGetFileInfoServer := givenTestServer(succesGetFileInfoHandler(*t, fileCode, s.apiKey))
+
+	urlGetFileInfo = mockGetFileInfoServer.URL
+
+	got, err := s.getFileInfo(fileCode)
+	require.NoError(t, err)
+
+	assert.Equal(t, "1ahye98t2y6r", got.Result[0].Filecode)
 }
