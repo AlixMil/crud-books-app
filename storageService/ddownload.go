@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	apiKeyParamName = "key"
+	apiKeyParamName   = "key"
+	fileCodeParamName = "file_code"
 )
 
 // URLs for requests
@@ -61,6 +62,9 @@ type getFileInfoResponse struct {
 }
 
 func doRequest(method, path string, queryParams []queryParams, body *bytes.Buffer) (*http.Request, error) {
+	if body == nil {
+		body = nil
+	}
 	req, err := http.NewRequest(method, path, body)
 	if err != nil {
 		return &http.Request{}, err
@@ -77,7 +81,7 @@ func doRequest(method, path string, queryParams []queryParams, body *bytes.Buffe
 
 func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
 	queryParams := []queryParams{{queryParamName: apiKeyParamName, queryParamVal: s.apiKey}}
-	req, err := doRequest(http.MethodGet, urlGetServerToUpload, queryParams, nil)
+	req, err := doRequest(http.MethodGet, urlGetServerToUpload, queryParams, &bytes.Buffer{})
 	if err != nil {
 		return nil, err
 	}
@@ -182,8 +186,11 @@ func (s Service) UploadFile(file []byte) (string, error) {
 
 }
 
-func (s Service) getFileInfo() (*getFileInfoResponse, error) {
-	req, err := doRequest(http.MethodGet, urlGetFileInfo, []queryParams{{queryParamName: apiKeyParamName, queryParamVal: s.apiKey}}, nil)
+func (s Service) getFileInfo(fileCode string) (*getFileInfoResponse, error) {
+	req, err := doRequest(http.MethodGet, urlGetFileInfo, []queryParams{
+		{queryParamName: apiKeyParamName, queryParamVal: s.apiKey},
+		{queryParamName: fileCodeParamName, queryParamVal: fileCode}},
+		&bytes.Buffer{})
 	if err != nil {
 		return nil, fmt.Errorf("error in request of getFileLink func: %w", err)
 	}
