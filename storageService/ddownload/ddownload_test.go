@@ -1,7 +1,8 @@
-package storageService
+package ddownload
 
 import (
 	"bytes"
+	storageService_helpers "crud-books/storageService"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ func Test_DoRequestWQuery(t *testing.T) {
 	mockServer := givenTestServer(parsedRequestHandler(apiKeyVal))
 	urlForTest := mockServer.URL
 
-	req, err := doRequest(http.MethodGet, urlForTest, []queryParams{{queryParamName: apiKeyParamName, queryParamVal: apiKeyVal}}, &bytes.Buffer{})
+	req, err := storageService_helpers.DoRequest(http.MethodGet, urlForTest, []queryParam{{QueryParamName: apiKeyParamName, QueryParamVal: apiKeyVal}}, &bytes.Buffer{})
 	if err != nil {
 		t.Errorf("request forming was error: %s", err.Error())
 	}
@@ -198,19 +199,19 @@ func TestService_UploadFile_Success(t *testing.T) {
 	assert.Equal(t, "yzanp0ps7sgl", got)
 }
 
-func checkGetFileInfoRequest(t *testing.T, expectQueryData []queryParams) handlerOption {
+func checkGetFileInfoRequest(t *testing.T, expectQueryData []queryParam) handlerOption {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		for _, q := range expectQueryData {
-			require.Equal(t, q.queryParamVal, r.URL.Query().Get(q.queryParamName))
+			require.Equal(t, q.QueryParamVal, r.URL.Query().Get(q.QueryParamName))
 		}
 		return nil
 	}
 }
 
 func succesGetFileInfoHandler(t testing.T, fileCode, apiKey string) http.Handler {
-	return handlerHelper(&t, "./testsData/getFileInfoResponse.json", checkGetFileInfoRequest(&t, []queryParams{
-		{queryParamName: fileCodeParamName, queryParamVal: fileCode},
-		{queryParamName: apiKeyParamName, queryParamVal: apiKey},
+	return handlerHelper(&t, "./testsData/getFileInfoResponse.json", checkGetFileInfoRequest(&t, []queryParam{
+		{QueryParamName: fileCodeParamName, QueryParamVal: fileCode},
+		{QueryParamName: apiKeyParamName, QueryParamVal: apiKey},
 	}))
 }
 
@@ -221,7 +222,7 @@ func TestService_GetFileInfo_Success(t *testing.T) {
 
 	urlGetFileInfo = mockGetFileInfoServer.URL
 
-	got, err := s.getFileInfo(fileCode)
+	got, err := s.GetFileInfo(fileCode)
 	require.NoError(t, err)
 
 	assert.Equal(t, "1ahye98t2y6r", got.Result[0].Filecode)

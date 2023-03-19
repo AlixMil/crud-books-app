@@ -1,7 +1,8 @@
-package storageService
+package ddownload
 
 import (
 	"bytes"
+	storageService_helpers "crud-books/storageService"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,11 +44,6 @@ type UploadServerSummary struct {
 	Server string
 }
 
-type queryParams struct {
-	queryParamName string
-	queryParamVal  string
-}
-
 type getFileInfoResponse struct {
 	Msg        string `json:"msg"`
 	ServerTime string `json:"server_time"`
@@ -61,27 +57,11 @@ type getFileInfoResponse struct {
 	} `json:"result"`
 }
 
-func doRequest(method, path string, queryParams []queryParams, body *bytes.Buffer) (*http.Request, error) {
-	if body == nil {
-		body = nil
-	}
-	req, err := http.NewRequest(method, path, body)
-	if err != nil {
-		return &http.Request{}, err
-	}
-
-	for _, v := range queryParams {
-		q := req.URL.Query()
-		q.Add(v.queryParamName, v.queryParamVal)
-		req.URL.RawQuery = q.Encode()
-	}
-
-	return req, nil
-}
+type queryParam = storageService_helpers.QueryParams
 
 func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
-	queryParams := []queryParams{{queryParamName: apiKeyParamName, queryParamVal: s.apiKey}}
-	req, err := doRequest(http.MethodGet, urlGetServerToUpload, queryParams, &bytes.Buffer{})
+	queryParams := []queryParam{{QueryParamName: apiKeyParamName, QueryParamVal: s.apiKey}}
+	req, err := storageService_helpers.DoRequest(http.MethodGet, urlGetServerToUpload, queryParams, &bytes.Buffer{})
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +135,7 @@ func (s Service) UploadFile(file []byte) (string, error) {
 		return "", err
 	}
 
-	req, err := doRequest(http.MethodPost, uploadServerSummary.Server, []queryParams{}, body)
+	req, err := storageService_helpers.DoRequest(http.MethodPost, uploadServerSummary.Server, []queryParam{}, body)
 	if err != nil {
 		return "", err
 	}
@@ -186,10 +166,10 @@ func (s Service) UploadFile(file []byte) (string, error) {
 
 }
 
-func (s Service) getFileInfo(fileCode string) (*getFileInfoResponse, error) {
-	req, err := doRequest(http.MethodGet, urlGetFileInfo, []queryParams{
-		{queryParamName: apiKeyParamName, queryParamVal: s.apiKey},
-		{queryParamName: fileCodeParamName, queryParamVal: fileCode}},
+func (s Service) GetFileInfo(fileCode string) (*getFileInfoResponse, error) {
+	req, err := storageService_helpers.DoRequest(http.MethodGet, urlGetFileInfo, []queryParam{
+		{QueryParamName: apiKeyParamName, QueryParamVal: s.apiKey},
+		{QueryParamName: fileCodeParamName, QueryParamVal: fileCode}},
 		&bytes.Buffer{})
 	if err != nil {
 		return nil, fmt.Errorf("error in request of getFileLink func: %w", err)

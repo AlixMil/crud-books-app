@@ -5,7 +5,7 @@ import (
 	"crud-books/handlers"
 	"crud-books/mongodb"
 	"crud-books/server"
-	storageService "crud-books/storageService"
+	"crud-books/storageService/gofile"
 	"log"
 )
 
@@ -20,7 +20,7 @@ func main() {
 		log.Fatalf("Database init failed: %v", err)
 	}
 
-	storage := storageService.New(cfg.StorageServiceApiKey)
+	storage := gofile.New(cfg.GoFileServiceApiKey, cfg.GoFileFolderToken)
 
 	// strg, err := storage.New(service)
 	// if err != nil {
