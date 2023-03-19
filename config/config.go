@@ -7,14 +7,16 @@ import (
 )
 
 type Config struct {
-	ServerHost           string
-	ServerPort           string
-	StorageServiceApiKey string
-	DatabaseName         string
-	DatabasePort         string
-	DatabaseHost         string
-	DatabaseLogin        string
-	DatabasePwd          string
+	ServerHost             string
+	ServerPort             string
+	DdownloadServiceApiKey string
+	GoFileServiceApiKey    string
+	GoFileFolderToken      string
+	DatabaseName           string
+	DatabasePort           string
+	DatabaseHost           string
+	DatabaseLogin          string
+	DatabasePwd            string
 }
 
 func New() (*Config, error) {
@@ -23,13 +25,15 @@ func New() (*Config, error) {
 	}
 
 	return &Config{
-		ServerHost:           os.Getenv("SERVER_HOST"),
-		ServerPort:           os.Getenv("SERVER_PORT"),
-		StorageServiceApiKey: os.Getenv("STORAGE_SERVICE_API_KEY"),
-		DatabaseName:         os.Getenv("DB_NAME"),
-		DatabasePort:         os.Getenv("DB_PORT"),
-		DatabaseHost:         os.Getenv("DB_HOST"),
-		DatabaseLogin:        os.Getenv("DB_LOGIN"),
-		DatabasePwd:          os.Getenv("DB_PWD"),
+		ServerHost:             os.Getenv("SERVER_HOST"),
+		ServerPort:             os.Getenv("SERVER_PORT"),
+		DdownloadServiceApiKey: os.Getenv("DDOWNLOAD_SERVICE_API_KEY"),
+		GoFileServiceApiKey:    os.Getenv("GOFILE_SERVICE_API_KEY"),
+		GoFileFolderToken:      os.Getenv("GOFILE_FOLDER_TOKEN"),
+		DatabaseName:           os.Getenv("DB_NAME"),
+		DatabasePort:           os.Getenv("DB_PORT"),
+		DatabaseHost:           os.Getenv("DB_HOST"),
+		DatabaseLogin:          os.Getenv("DB_LOGIN"),
+		DatabasePwd:            os.Getenv("DB_PWD"),
 	}, nil
 }
