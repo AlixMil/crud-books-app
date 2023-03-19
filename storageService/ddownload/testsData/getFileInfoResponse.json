@@ -1,0 +1,14 @@
+{
+	"msg": "OK",
+	"server_time": "2023-03-19 10:50:42",
+	"status": 200,
+	"result": [
+		{
+			"uploaded": "2023-03-19 10:38:22",
+			"status": 200,
+			"filecode": "1ahye98t2y6r",
+			"name": "pexels-crisdip-128756 &#40;1&#41;.jpg",
+			"size": "2819139"
+		}
+	]
+}
