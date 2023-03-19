@@ -15,19 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// func TestService_GetServerToUpload(t *testing.T) {
-// 	// setup envirenment
-// 	apiKeyService := "SDjkasjdkh$U%(U$%hkdjaks"
-// 	service := New(apiKeyService)
-// 	// execute
-// 	getServerResponse, err := service.GetServerToUpload()
-// 	if err != nil {
-// 		t.Fail()
-// 	}
-// 	// assert
-// 	_ = getServerResponse
-// }
-
 func TestService_GetServerToUpload_NotFound(t *testing.T) {
 	// setup environment
 	apiKey := "some api key of the ddownload service"
@@ -68,7 +55,6 @@ func TestService_UploadFile_GetServerToUpload_RequestError(t *testing.T) {
 	assert.EqualError(t, err, "get server error: status code 404")
 }
 
-// test for func doReqeustWQuery
 func Test_DoRequestWQuery(t *testing.T) {
 	const apiKeyVal = "12312"
 	mockServer := givenTestServer(parsedRequestHandler(apiKeyVal))
@@ -95,28 +81,11 @@ func TestService_UploadFile_GetServerToUploadRequestError(t *testing.T) {
 	assert.Error(t, err, "get server error: status code 404")
 }
 
-// func TestService_UploadFile_GetServerToUpload(t *testing.T) {
-// 	s := New("jfaksjdkjas")
-// 	mockServer := givenTestServer(alwaysNotFoundHandler())
-// 	urlGetServerToUpload = mockServer.URL
-
-// 	_, err := s.UploadFile([]byte{1, 2, 3, 4})
-
-// 	assert.Error(t, err, "get server error: status code 404")
-// }
-
-// {
-//     "msg": "OK",
-//     "server_time": "2017-08-11 04:29:54",
-//     "status": 200,
-//     "sess_id": "1cvxk3uo91qtafcx8k7vptntn65nek1z2xybg4sicmk7jjbl5n",
-//     "result": "https://wwwNNN.ucdn.to/cgi-bin/upload.cgi"
-// }
-
 type handlerOption func(w http.ResponseWriter, r *http.Request) error
 
-func checkMultipartBody(t *testing.T, expectFileData []byte) handlerOption {
+func checkMultipartBody(t *testing.T, expectFileData []byte, sessId string) handlerOption {
 	return func(w http.ResponseWriter, r *http.Request) error {
+		// 10 mb
 		r.ParseMultipartForm(0)
 
 		buff := bytes.NewBuffer([]byte{})
@@ -133,6 +102,26 @@ func checkMultipartBody(t *testing.T, expectFileData []byte) handlerOption {
 
 			}
 		}
+		var (
+			actualSessId string
+			actualUType  string
+		)
+
+		if len(r.MultipartForm.Value["sess_id"]) != 0 {
+			actualSessId = r.MultipartForm.Value["sess_id"][0]
+		} else {
+			actualSessId = ""
+		}
+
+		if len(r.MultipartForm.Value["utype"]) != 0 {
+			actualUType = r.MultipartForm.Value["utype"][0]
+		} else {
+			actualUType = ""
+		}
+
+		require.Equal(t, sessId, actualSessId)
+		require.Equal(t, "prem", actualUType)
+
 		require.Equal(t, string(expectFileData), buff.String())
 		return nil
 	}
@@ -176,7 +165,24 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 }
 
 func uploadFileServerHandler(t *testing.T, body []byte) http.Handler {
-	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody(t, body))
+	fileName := "./testsData/getServerToUploadSuccessResponse.json"
+
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0777)
+	require.NoError(t, err)
+	defer file.Close()
+	j, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	var v getServerUploadResponse
+	err = json.Unmarshal(j, &v)
+	require.NoError(t, err)
+	v.SessID = "1cvxk3uo91qtafcx8k7vptntn65nek1z2xybg4sicmk7jj3413"
+
+	r, err := json.Marshal(v)
+	require.NoError(t, err)
+	err = os.WriteFile(fileName, r, 0777)
+	require.NoError(t, err)
+	return handlerHelper(t, "./testsData/uploadFileServerResponse.json", checkMultipartBody(t, body, v.SessID))
 }
 
 func TestService_UploadFile_Success(t *testing.T) {
