@@ -17,6 +17,7 @@ type Config struct {
 	DatabaseHost           string
 	DatabaseLogin          string
 	DatabasePwd            string
+	JWTSecret              string
 }
 
 func New() (*Config, error) {
@@ -35,5 +36,6 @@ func New() (*Config, error) {
 		DatabaseHost:           os.Getenv("DB_HOST"),
 		DatabaseLogin:          os.Getenv("DB_LOGIN"),
 		DatabasePwd:            os.Getenv("DB_PWD"),
+		JWTSecret:              os.Getenv("JWT_SECRET"),
 	}, nil
 }
