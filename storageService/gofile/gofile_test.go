@@ -69,5 +69,5 @@ func TestService_UploadFile_Success(t *testing.T) {
 	got, err := s.UploadFile(uploadBody, true)
 
 	require.NoError(t, err)
-	assert.Equal(t, "https://gofile.io/d/Z19n9a", got)
+	assert.Equal(t, "https://gofile.io/d/Z19n9a", got.DownloadPage)
 }
