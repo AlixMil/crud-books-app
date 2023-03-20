@@ -60,8 +60,15 @@ type getFileInfoResponse struct {
 type queryParam = storageService_helpers.QueryParams
 
 func (s Service) GetServerToUpload() (*UploadServerSummary, error) {
-	queryParams := []queryParam{{QueryParamName: apiKeyParamName, QueryParamVal: s.apiKey}}
-	req, err := storageService_helpers.DoRequest(http.MethodGet, urlGetServerToUpload, queryParams, &bytes.Buffer{})
+	queryParams := []queryParam{
+		{QueryParamName: apiKeyParamName, QueryParamVal: s.apiKey},
+	}
+	req, err := storageService_helpers.DoRequest(
+		http.MethodGet,
+		urlGetServerToUpload,
+		queryParams,
+		&bytes.Buffer{},
+	)
 	if err != nil {
 		return nil, err
 	}
