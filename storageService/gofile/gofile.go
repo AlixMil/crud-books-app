@@ -109,15 +109,20 @@ func getBodyWriter(file []byte, apiKey, folderId string) (*bytes.Buffer, string,
 	return body, writer.FormDataContentType(), nil
 }
 
-func (s Service) UploadFile(file []byte, isTest bool) (string, error) {
+type UploadFileReturn struct {
+	DownloadPage string
+	FileToken    string
+}
+
+func (s Service) UploadFile(file []byte, isTest bool) (*UploadFileReturn, error) {
 	serverToUpload, err := s.getServerToUpload()
 	if err != nil {
-		return "", fmt.Errorf("error in serverToUpload getting of UploadFile: %w", err)
+		return nil, fmt.Errorf("error in serverToUpload getting of UploadFile: %w", err)
 	}
 
 	body, contentType, err := getBodyWriter(file, s.apiKey, s.folderId)
 	if err != nil {
-		return "", fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
+		return nil, fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
 	}
 
 	if !isTest {
@@ -131,27 +136,27 @@ func (s Service) UploadFile(file []byte, isTest bool) (string, error) {
 		body,
 	)
 	if err != nil {
-		return "", fmt.Errorf("error in req of UploadFile: %w", err)
+		return nil, fmt.Errorf("error in req of UploadFile: %w", err)
 	}
 	req.Header.Add("Content-Type", contentType)
 
 	res, err := s.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error when uploadfile func sending request: %w", err)
+		return nil, fmt.Errorf("error when uploadfile func sending request: %w", err)
 	}
 
 	jsonResponse, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var uploadResp uploadFileResponse
 	err = json.Unmarshal(jsonResponse, &uploadResp)
 	if err != nil {
-		return "", fmt.Errorf("error in unmarshal of uploadfile: %w", err)
+		return nil, fmt.Errorf("error in unmarshal of uploadfile: %w", err)
 	}
 
-	return uploadResp.Data.DownloadPage, nil
+	return &UploadFileReturn{DownloadPage: uploadResp.Data.DownloadPage, FileToken: uploadResp.Data.FileID}, nil
 }
 
 func (s Service) DeleteFile(fileToken string) error {
