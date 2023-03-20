@@ -61,7 +61,13 @@ func (s Service) getServerToUpload() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error in request of getServerToUpload : %w", err)
 	}
-	jsonRes, err := io.ReadAll(req.Body)
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error when client send request in getServerToUpload: %w", err)
+	}
+
+	jsonRes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", fmt.Errorf("error in reading body of req in getServerToUpload: %w", err)
 	}
@@ -131,7 +137,7 @@ func (s Service) UploadFile(file []byte, isTest bool) (string, error) {
 
 	res, err := s.client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error when uploadfile func sending request: %w", err)
 	}
 
 	jsonResponse, err := io.ReadAll(res.Body)

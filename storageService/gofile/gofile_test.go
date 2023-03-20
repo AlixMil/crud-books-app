@@ -1,6 +1,7 @@
 package gofile
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,8 +30,26 @@ func handlerHelper(t *testing.T, path string) http.Handler {
 	})
 }
 
-func getServerToUploadHandler(t *testing.T) http.Handler {
-	return handlerHelper(t, "./testsData/getServerToUploadResponse.json")
+func getServerToUploadHandler(t *testing.T, url string) http.Handler {
+	fileName := "./testsData/getServerToUploadResponse.json"
+
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0777)
+	require.NoError(t, err)
+	defer file.Close()
+	j, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	var v UploadServerSummary
+	err = json.Unmarshal(j, &v)
+	require.NoError(t, err)
+	v.Data.Server = url
+
+	r, err := json.Marshal(v)
+	require.NoError(t, err)
+	err = os.WriteFile(fileName, r, 0777)
+	require.NoError(t, err)
+
+	return handlerHelper(t, fileName)
 }
 
 func uploadFileServerHandler(t *testing.T) http.Handler {
@@ -42,11 +61,13 @@ func TestService_UploadFile_Success(t *testing.T) {
 	uploadBody := []byte("Hello, World!")
 
 	mockUploadServer := givenTestServer(uploadFileServerHandler(t))
-	mockGetServer := givenTestServer(getServerToUploadHandler(t))
-	urlUploadServer = mockUploadServer.URL
+	mockGetServer := givenTestServer(getServerToUploadHandler(t, mockUploadServer.URL))
+
 	urlGetServer = mockGetServer.URL
+	urlUploadServer = mockUploadServer.URL
 
 	got, err := s.UploadFile(uploadBody, true)
+
 	require.NoError(t, err)
 	assert.Equal(t, "https://gofile.io/d/Z19n9a", got)
 }
