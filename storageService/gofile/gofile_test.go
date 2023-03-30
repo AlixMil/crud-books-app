@@ -1,6 +1,7 @@
 package gofile
 
 import (
+	"crud-books/storageService/gofile/gofile_responses"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -39,7 +40,7 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 	j, err := io.ReadAll(file)
 	require.NoError(t, err)
 
-	var v UploadServerSummary
+	var v gofile_responses.UploadServerSummary
 	err = json.Unmarshal(j, &v)
 	require.NoError(t, err)
 	v.Data.Server = url
