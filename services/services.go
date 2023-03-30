@@ -23,8 +23,9 @@ type DB interface {
 	GetUserData(email string) (*models.UserData, error)
 	GetBook(bookToken string) (*models.BookData, error)
 	GetFileData(fileToken string) (*models.FileData, error)
-	GetListOfBooks(userEmail string) (*[]models.BookData, error)
 	DeleteBook(tokenBook string) error
+	GetUserDataByInsertedId(userId string) (*models.UserData, error)
+	GetListOfBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 }
 
 type Storager interface {
@@ -39,19 +40,10 @@ type Services struct {
 	hasher  hasher.Hasher
 }
 
-type getBookResponse struct {
+type GetBookResponse struct {
 	FileUrl     string `json:"fileUrl"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
-}
-
-func New(db *mongodb.MongoDB, tokener jwt_package.JwtTokener, storage gofile.Storage, hasher hasher.Hasher) *Services {
-	return &Services{
-		db:      db,
-		tokener: tokener,
-		storage: storage,
-		hasher:  hasher,
-	}
 }
 
 func (s Services) SignIn(user models.UserDataInput) (string, error) {
@@ -110,24 +102,24 @@ func (s Services) UploadFile(file []byte) (string, error) {
 	return res.FileToken, nil
 }
 
-func (s Services) GetBook(bookToken string) (*getBookResponse, error) {
+func (s Services) GetBook(bookToken string) (*GetBookResponse, error) {
 	bookData, err := s.db.GetBook(bookToken)
 	if err != nil {
 		return nil, fmt.Errorf("get book in get book of service failed, error: %w", err)
 	}
-	return &getBookResponse{
+	return &GetBookResponse{
 		FileUrl:     bookData.DownloadUrl,
 		Title:       bookData.Title,
 		Description: bookData.Description,
 	}, nil
 }
 
-func (s Services) GetListBooksOfUser(userEmail string) (*[]models.BookData, error) {
-	res, err := s.db.GetListOfBooks(userEmail)
+func (s Services) GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
+	books, err := s.db.GetListOfBooks(filter, sorting)
 	if err != nil {
-		return nil, fmt.Errorf("get list of books failed, error: %w", err)
+		return nil, fmt.Errorf("get list of books method failed, error: %w", err)
 	}
-	return res, nil
+	return books, nil
 }
 
 func (s Services) UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error {
@@ -144,4 +136,13 @@ func (s Services) DeleteBook(tokenBook string) error {
 		return fmt.Errorf("delete book was failed, error: %w", err)
 	}
 	return nil
+}
+
+func New(db *mongodb.MongoDB, tokener jwt_package.JwtTokener, storage gofile.Storage, hasher hasher.Hasher) *Services {
+	return &Services{
+		db:      db,
+		tokener: tokener,
+		storage: storage,
+		hasher:  hasher,
+	}
 }
