@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -18,11 +20,17 @@ type Config struct {
 	DatabaseLogin          string
 	DatabasePwd            string
 	JWTSecret              string
+	JWTTokenTTL            int
 }
 
 func New() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		return &Config{}, err
+	}
+
+	JWTTokenTTL, err := strconv.Atoi(os.Getenv("JWT_TOKEN_TTL"))
+	if err != nil {
+		return nil, fmt.Errorf("failed convert to in of JWT_TOKEN_TTL, error: %w", err)
 	}
 
 	return &Config{
@@ -37,5 +45,6 @@ func New() (*Config, error) {
 		DatabaseLogin:          os.Getenv("DB_LOGIN"),
 		DatabasePwd:            os.Getenv("DB_PWD"),
 		JWTSecret:              os.Getenv("JWT_SECRET"),
+		JWTTokenTTL:            JWTTokenTTL,
 	}, nil
 }
