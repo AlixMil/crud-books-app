@@ -178,7 +178,7 @@ func (e EchoHandlers) GetUserBooks(c echo.Context) error {
 		Search: search,
 	}
 	sorting := models.Sort{
-		Sort:      sort,
+		SortField: sort,
 		Limit:     limitInt,
 		Direction: direction,
 	}
