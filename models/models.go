@@ -37,3 +37,12 @@ type Sort struct {
 	Limit     int
 	Direction string
 }
+
+type ValidateDataInGetLists struct {
+	Email  string
+	Search string
+
+	SortField string
+	Limit     int
+	Direction int
+}
