@@ -38,10 +38,10 @@ type Handlers interface {
 	SignIn(c echo.Context) error
 	CreateBook(c echo.Context) error
 	GetBook(c echo.Context) error
-	GetUserBooks(c echo.Context) error
+	GetBooksPublic(c echo.Context) error
+	GetBooksOfUser(c echo.Context) error
 	UpdateBook(c echo.Context) error
 	DeleteBook(c echo.Context) error
-	GetBooksPublic(c echo.Context) error
 }
 
 func (s Server) InitHandlers(handlers Handlers) {
@@ -72,7 +72,7 @@ func (s Server) InitHandlers(handlers Handlers) {
 	s.server.Add(http.MethodPost, "/files", handlers.UploadFile)
 	s.server.Add(http.MethodPost, "/books", handlers.CreateBook)
 	s.server.Add(http.MethodPost, "/books/:id", handlers.GetBook)
-	s.server.Add(http.MethodPost, "/books", handlers.GetUserBooks)
+	s.server.Add(http.MethodPost, "/books", handlers.GetBooksOfUser)
 	s.server.Add(http.MethodPatch, "/books/:id", handlers.UpdateBook)
 	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
 }
