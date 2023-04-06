@@ -18,13 +18,7 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	db, err := mongodb.NewClient(
-		cfg.DatabaseLogin,
-		cfg.DatabasePwd,
-		cfg.DatabaseName,
-		cfg.DatabaseHost,
-		cfg.DatabasePort,
-	)
+	db, err := mongodb.NewClient(*cfg)
 	if err != nil {
 		log.Fatalf("Database init failed: %v", err)
 	}
