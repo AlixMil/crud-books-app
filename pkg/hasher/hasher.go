@@ -8,10 +8,6 @@ import (
 
 type Hasher struct{}
 
-func New() *Hasher {
-	return &Hasher{}
-}
-
 func (h Hasher) GetNewHash(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	if err != nil {
@@ -22,4 +18,8 @@ func (h Hasher) GetNewHash(password string) (string, error) {
 
 func (h Hasher) CompareHashWithPassword(password, hash string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
+func New() *Hasher {
+	return &Hasher{}
 }
