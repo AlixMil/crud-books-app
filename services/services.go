@@ -53,12 +53,13 @@ const (
 	maxSizeOfLimitParam   = 100
 )
 
-func getParamsWValidate(email, search, sortField, direction string, limit int) *models.ValidateDataInGetLists {
+func getParamsWValidation(email, search, sortField, direction string, limit, offset int) *models.ValidateDataInGetLists {
 	var res models.ValidateDataInGetLists
 
 	res.Email = email
 	res.Search = search
 	res.Limit = limit
+	res.Offset = offset
 
 	if sortField != "title" && sortField != "date" {
 		res.SortField = sortFieldDefaultParam
@@ -168,7 +169,7 @@ func (s Services) GetBook(bookToken string) (*GetBookResponse, error) {
 
 func (s Services) GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
 	var books *[]models.BookData
-	validateParams := getParamsWValidate("", filter.Search, sorting.SortField, sorting.Direction, sorting.Limit)
+	validateParams := getParamsWValidation("", filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
 	if validateParams.Email == "" {
 		_, err := s.db.GetListBooksPublic(validateParams)
 		if err != nil {
@@ -185,7 +186,7 @@ func (s Services) GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]
 }
 
 func (s Services) GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
-	validParams := getParamsWValidate(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit)
+	validParams := getParamsWValidation(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
 
 	books, err := s.db.GetListBooksOfUser(validParams)
 	if err != nil {
