@@ -9,10 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 )
 
@@ -27,28 +29,30 @@ type EchoHandlers struct {
 
 type tokener interface {
 	GenerateToken(userId string) (string, error)
-	ParseToken(token string) (string, error)
+	// ParseToken(token string) (string, error)
 }
 
 type UserDB interface {
-	CreateUser(email, passwordHash string) error
-	CreateBook(title, description, fileToken, emailOwner string) (string, error)
-	ChangeFieldOfBook(collectionName, id, fieldName, fieldValue string) error
-	UploadFileData(fileToken, downloadPage string) error
-	GetUserData(email string) (*models.UserData, error)
 	GetBook(bookToken string) (*models.BookData, error)
+	CreateUser(email, passwordHash string) (string, error)
+	CreateBook(title, description, fileToken, emailOwner string) (string, error)
+	GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
+	GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
+	ChangeFieldOfBook(id, fieldName, fieldValue string) error
+	UploadFileData(fileToken, downloadPage string) error
 	GetFileData(fileToken string) (*models.FileData, error)
-	GetListOfBooks(userEmail string) (*[]models.BookData, error)
-	DeleteBook(tokenBook string) error
+	GetUserData(email string) (*models.UserData, error)
 	GetUserDataByInsertedId(userId string) (*models.UserData, error)
+	DeleteBook(tokenBook string) error
 }
 
 type Service interface {
 	SignIn(user models.UserDataInput) (string, error)
-	SugnUp(user models.UserDataInput) error
+	SignUp(user models.UserDataInput) (string, error)
 	CreateBook(title, description, fileToken, userEmail string) (string, error)
 	UploadFile(file []byte) (string, error)
 	GetBook(bookToken string) (*services.GetBookResponse, error)
+	GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error
 	DeleteBook(tokenBook string) error
@@ -76,8 +80,6 @@ type GetBookResponse struct {
 }
 
 func (e *EchoHandlers) UploadFile(c echo.Context) error {
-	// load file to storage -> return token of file
-	// record to db token
 	file, err := c.FormFile("file")
 	if err != nil {
 		return err
@@ -109,16 +111,28 @@ type CreateBookRequest struct {
 	Description string `json:"description"`
 }
 
+func getUserId(context echo.Context) (string, error) {
+	user := context.Get("user").(*jwt.Token)
+	if user == nil {
+		return "", fmt.Errorf("getting user from context in getUserId failed")
+	}
+	claims := user.Claims.(jwt.MapClaims)
+	userId := claims["userId"].(string)
+	if userId == "" {
+		return "", fmt.Errorf("userId is empty!")
+	}
+	return userId, nil
+}
+
 func (e *EchoHandlers) CreateBook(c echo.Context) error {
 	var reqBody CreateBookRequest
 	err := c.Bind(&reqBody)
 	if err != nil {
 		return fmt.Errorf("failed of reading (binding) request body in create book func of handlers. Error: %w", err)
 	}
-	jwtToken := c.Request().Header.Get("Authorization")
-	userId, err := e.Tokener.ParseToken(jwtToken)
+	userId, err := getUserId(c)
 	if err != nil {
-		return fmt.Errorf("failed parse jwt, error: %w", err)
+		return err
 	}
 	userData, err := e.db.GetUserDataByInsertedId(userId)
 	if err != nil {
@@ -151,63 +165,89 @@ func (e *EchoHandlers) GetBook(c echo.Context) error {
 	return c.JSON(http.StatusOK, marshResp)
 }
 
-func (e EchoHandlers) GetUserBooks(c echo.Context) error {
-	if c.QueryParams().Get("search") == "" {
-		return c.String(http.StatusBadRequest, "search query parameter is mandatory for this request")
+func getBooksParamsFieldFiller(c echo.Context, userEmail string) (*models.Filter, *models.Sort, error) {
+
+	filter := models.Filter{
+		Email:  userEmail,
+		Search: c.QueryParams().Get("search"),
 	}
-	jwtToken := c.Request().Header.Get("Authorization")
-	userId, err := e.Tokener.ParseToken(jwtToken)
+
+	intLimit, err := strconv.Atoi(c.QueryParams().Get("limit"))
 	if err != nil {
-		return fmt.Errorf("failed parse jwt, error: %w", err)
+		return nil, nil, fmt.Errorf("limit param should be a number, error: %w", err)
+	}
+	var offset string
+	if c.QueryParams().Get("offset") == "" {
+		offset = "0"
+	}
+
+	intOffset, err := strconv.Atoi(offset)
+	if err != nil {
+		return nil, nil, fmt.Errorf("offset param should be a number")
+	}
+
+	sorting := models.Sort{
+		SortField: c.QueryParams().Get("sort"),
+		Limit:     intLimit,
+		Direction: c.QueryParams().Get("direction"),
+		Offset:    intOffset,
+	}
+
+	return &filter, &sorting, nil
+}
+
+func (e EchoHandlers) GetBooksPublic(c echo.Context) error {
+	filter, sort, err := getBooksParamsFieldFiller(c, "")
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	books, err := e.Services.GetBooksPublic(*filter, *sort)
+	if err != nil {
+		return fmt.Errorf("service layer get books public error: %w", err)
+	}
+	return c.JSON(http.StatusOK, books)
+}
+
+func (e EchoHandlers) GetBooksOfUser(c echo.Context) error {
+	userId, err := getUserId(c)
+	if err != nil {
+		return err
 	}
 	userData, err := e.db.GetUserDataByInsertedId(userId)
 	if err != nil {
 		return fmt.Errorf("getting user data by jwt user id failed, error: %w", err)
 	}
-	search := c.QueryParams().Get("search")
-	limit := c.QueryParams().Get("limit")
-	sort := c.QueryParams().Get("sort")
-	direction := c.QueryParams().Get("direction")
-	limitInt, err := strconv.Atoi(limit)
+
+	filter, sort, err := getBooksParamsFieldFiller(c, userData.Email)
 	if err != nil {
-		return c.String(http.StatusBadRequest, "limit parameter should be number")
+		return fmt.Errorf("%w", err)
 	}
 
-	filter := models.Filter{
-		Email:  userData.Email,
-		Search: search,
-	}
-	sorting := models.Sort{
-		SortField: sort,
-		Limit:     limitInt,
-		Direction: direction,
-	}
-
-	books, err := e.Services.GetListBooksOfUser(filter, sorting)
+	books, err := e.Services.GetListBooksOfUser(*filter, *sort)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "")
 	}
 
-	c.JSON(http.StatusOK, books)
-
+	return c.JSON(http.StatusOK, books)
 }
 
 func (e *EchoHandlers) SignUp(c echo.Context) error {
 	var signUpData models.UserDataInput
 	err := c.Bind(&signUpData)
+	log.Println("sign up handler")
 	if err != nil {
 		return fmt.Errorf("sign up handler: %w", err)
 	}
-	e.Services.SugnUp(models.UserDataInput(signUpData))
 
-	h, err := e.Hasher.GetNewHash(signUpData.Password)
-	if err != nil {
-		return fmt.Errorf("hashing of password failed in sign up handler, error: %w", err)
-	}
-	err = e.db.CreateUser(signUpData.Email, h)
+	jwtTok, err := e.Services.SignUp(models.UserDataInput(signUpData))
 	if err != nil {
 		return err
 	}
+
+	bearerAuth := fmt.Sprintf("bearer %s", jwtTok)
+
+	c.Request().Header.Add("Authorization", bearerAuth)
+
 	return c.String(http.StatusOK, "Thanks for registration!")
 }
 
@@ -223,14 +263,24 @@ func (e *EchoHandlers) SignIn(c echo.Context) error {
 	}
 
 	if c.Request().Header.Get("Authorization") == "" {
-		c.Request().Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	} else {
 		c.Request().Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	} else {
+		c.Request().Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"token": token,
 	})
+}
+
+func (e *EchoHandlers) UpdateBook(c echo.Context) error {
+
+	return c.JSON(http.StatusOK, "sda")
+}
+
+func (e *EchoHandlers) DeleteBook(c echo.Context) error {
+
+	return c.JSON(http.StatusOK, "sda")
 }
 
 func New(db UserDB, storage ServiceStorage, jwtSecret string, serviceLayer Service, Tokener tokener) (*EchoHandlers, error) {
