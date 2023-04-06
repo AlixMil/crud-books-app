@@ -36,6 +36,7 @@ type Sort struct {
 	SortField string
 	Limit     int
 	Direction string
+	Offset    int
 }
 
 type ValidateDataInGetLists struct {
@@ -45,4 +46,6 @@ type ValidateDataInGetLists struct {
 	SortField string
 	Limit     int
 	Direction int
+
+	Offset int
 }
