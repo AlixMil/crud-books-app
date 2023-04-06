@@ -13,8 +13,9 @@ func Test_ValidateParametersFunc(t *testing.T) {
 		sort := "title"
 		direction := "asc"
 		limit := 12
+		offset := 12
 
-		params := getParamsWValidate(email, search, sort, direction, limit)
+		params := getParamsWValidation(email, search, sort, direction, limit, offset)
 		assert.Equal(t, params.Email, email)
 		assert.Equal(t, params.SortField, sort)
 		assert.Equal(t, params.Limit, limit)
@@ -25,8 +26,9 @@ func Test_ValidateParametersFunc(t *testing.T) {
 		sort := "title"
 		direction := "dfajks"
 		limit := 12
+		offset := 12
 
-		params := getParamsWValidate(email, search, sort, direction, limit)
+		params := getParamsWValidation(email, search, sort, direction, limit, offset)
 
 		assert.Equal(t, directionDefaultParam, params.Direction)
 	})
@@ -37,8 +39,9 @@ func Test_ValidateParametersFunc(t *testing.T) {
 		sort := "ajskda"
 		direction := "asc"
 		limit := 12
+		offset := 12
 
-		params := getParamsWValidate(email, search, sort, direction, limit)
+		params := getParamsWValidation(email, search, sort, direction, limit, offset)
 
 		assert.Equal(t, sortFieldDefaultParam, params.SortField)
 	})
@@ -49,8 +52,9 @@ func Test_ValidateParametersFunc(t *testing.T) {
 		sort := "date"
 		direction := "asc"
 		limit := 12343
+		offset := 12
 
-		params := getParamsWValidate(email, search, sort, direction, limit)
+		params := getParamsWValidation(email, search, sort, direction, limit, offset)
 
 		assert.Equal(t, maxSizeOfLimitParam, params.Limit)
 	})
