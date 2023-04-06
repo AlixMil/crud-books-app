@@ -2,30 +2,30 @@ package services
 
 import (
 	"crud-books/models"
-	"crud-books/mongodb"
 	"crud-books/pkg/hasher"
-	jwt_package "crud-books/pkg/jwt"
-	"crud-books/storageService/gofile"
 	"crud-books/storageService/gofile/gofile_responses"
 	"fmt"
+	"log"
 )
 
 type Tokener interface {
 	GenerateToken(userId string) (string, error)
-	ParseToken(token string) (string, error)
+	// ParseToken(token string) (string, error)
 }
 
+//go:generate mockgen -source=services.go -destination=mocks/mock.go
 type DB interface {
-	CreateUser(email, passwordHash string) error
+	CreateUser(email, passwordHash string) (string, error)
 	CreateBook(title, description, fileToken, emailOwner string) (string, error)
-	ChangeFieldOfBook(collectionName, id, fieldName, fieldValue string) error
+	ChangeFieldOfBook(id, fieldName, fieldValue string) error
 	UploadFileData(fileToken, downloadPage string) error
 	GetUserData(email string) (*models.UserData, error)
 	GetBook(bookToken string) (*models.BookData, error)
 	GetFileData(fileToken string) (*models.FileData, error)
 	DeleteBook(tokenBook string) error
 	GetUserDataByInsertedId(userId string) (*models.UserData, error)
-	GetListOfBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
+	GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
+	GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
 }
 
 type Storager interface {
@@ -46,12 +46,53 @@ type GetBookResponse struct {
 	Description string `json:"description"`
 }
 
+const (
+	sortFieldDefaultParam = "title"
+	directionDefaultParam = 1
+	limitDefaultParam     = 10
+	maxSizeOfLimitParam   = 100
+)
+
+func getParamsWValidate(email, search, sortField, direction string, limit int) *models.ValidateDataInGetLists {
+	var res models.ValidateDataInGetLists
+
+	res.Email = email
+	res.Search = search
+	res.Limit = limit
+
+	if sortField != "title" && sortField != "date" {
+		res.SortField = sortFieldDefaultParam
+	} else if sortField == "title" {
+		res.SortField = "title"
+	} else if sortField == "date" {
+		res.SortField = "date"
+	}
+
+	if direction != "desc" && direction != "asc" {
+		res.Direction = directionDefaultParam
+	} else if direction == "asc" {
+		res.Direction = 1
+	} else if direction == "desc" {
+		res.Direction = -1
+	}
+
+	if limit > maxSizeOfLimitParam {
+		res.Limit = maxSizeOfLimitParam
+	}
+
+	if limit == 0 || limit < 0 {
+		res.Limit = limitDefaultParam
+	}
+
+	return &res
+}
+
 func (s Services) SignIn(user models.UserDataInput) (string, error) {
 	userCred, err := s.db.GetUserData(user.Email)
 	if err != nil {
 		return "", fmt.Errorf("failed find user in db in sign in method, error: %w", err)
 	}
-	err = s.hasher.CompareHashWithPassword(user.Password, userCred.Password)
+	err = s.hasher.CompareHashWithPassword(user.Password, userCred.PasswordHash)
 	if err != nil {
 		return "", fmt.Errorf("password isn't equal")
 	}
@@ -63,22 +104,33 @@ func (s Services) SignIn(user models.UserDataInput) (string, error) {
 	return token, nil
 }
 
-func (s Services) SugnUp(user models.UserDataInput) error {
+func (s Services) SignUp(user models.UserDataInput) (string, error) {
 	passwordHash, err := s.hasher.GetNewHash(user.Password)
 	if err != nil {
-		return fmt.Errorf("getting new hash of password failed, error: %w", err)
+		return "", fmt.Errorf("getting new hash of password failed, error: %w", err)
 	}
 
-	return s.db.CreateUser(user.Email, passwordHash)
+	userId, err := s.db.CreateUser(user.Email, passwordHash)
+	if err != nil {
+		return "", fmt.Errorf("create user DB proccess failed, error: %w", err)
+	}
+
+	token, err := s.tokener.GenerateToken(userId)
+	if err != nil {
+		return "", fmt.Errorf("generation token failed, error: %w", err)
+	}
+	log.Println("services signup")
+
+	return token, nil
 }
 
 func (s Services) ParseToken(token string) (string, error) {
-	userId, err := s.tokener.ParseToken(token)
-	if err != nil {
-		return "", fmt.Errorf("failed parsing token, error: %w", err)
-	}
+	// userId, err := s.tokener.ParseToken(token)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed parsing token, error: %w", err)
+	// }
 
-	return userId, nil
+	return "userId", nil
 }
 
 func (s Services) CreateBook(title, description, fileToken, userEmail string) (string, error) {
@@ -108,14 +160,34 @@ func (s Services) GetBook(bookToken string) (*GetBookResponse, error) {
 		return nil, fmt.Errorf("get book in get book of service failed, error: %w", err)
 	}
 	return &GetBookResponse{
-		FileUrl:     bookData.DownloadUrl,
+		FileUrl:     bookData.Url,
 		Title:       bookData.Title,
 		Description: bookData.Description,
 	}, nil
 }
 
+func (s Services) GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
+	var books *[]models.BookData
+	validateParams := getParamsWValidate("", filter.Search, sorting.SortField, sorting.Direction, sorting.Limit)
+	if validateParams.Email == "" {
+		_, err := s.db.GetListBooksPublic(validateParams)
+		if err != nil {
+			return nil, fmt.Errorf("get list of books public, error: %w", err)
+		}
+	}
+	if validateParams.Email != "" {
+		_, err := s.db.GetListBooksOfUser(validateParams)
+		if err != nil {
+			return nil, fmt.Errorf("get list of books error: %w", err)
+		}
+	}
+	return books, nil
+}
+
 func (s Services) GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
-	books, err := s.db.GetListOfBooks(filter, sorting)
+	validParams := getParamsWValidate(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit)
+
+	books, err := s.db.GetListBooksOfUser(validParams)
 	if err != nil {
 		return nil, fmt.Errorf("get list of books method failed, error: %w", err)
 	}
@@ -123,7 +195,7 @@ func (s Services) GetListBooksOfUser(filter models.Filter, sorting models.Sort) 
 }
 
 func (s Services) UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error {
-	err := s.db.ChangeFieldOfBook("books", tokenBook, fieldName, fieldValue)
+	err := s.db.ChangeFieldOfBook(tokenBook, fieldName, fieldValue)
 	if err != nil {
 		return fmt.Errorf("updating of fields book was failed, error: %w", err)
 	}
@@ -138,7 +210,7 @@ func (s Services) DeleteBook(tokenBook string) error {
 	return nil
 }
 
-func New(db *mongodb.MongoDB, tokener jwt_package.JwtTokener, storage gofile.Storage, hasher hasher.Hasher) *Services {
+func New(db DB, tokener Tokener, storage Storager, hasher hasher.Hasher) *Services {
 	return &Services{
 		db:      db,
 		tokener: tokener,
