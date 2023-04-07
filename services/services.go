@@ -9,7 +9,7 @@ import (
 )
 
 type Tokener interface {
-	GenerateToken(userId string) (string, error)
+	GenerateTokens(userId string) (string, string, error)
 	// ParseToken(token string) (string, error)
 }
 
@@ -97,7 +97,7 @@ func (s Services) SignIn(user models.UserDataInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("password isn't equal")
 	}
-	token, err := s.tokener.GenerateToken(userCred.Id)
+	token, _, err := s.tokener.GenerateTokens(userCred.Id)
 	if err != nil {
 		return "", fmt.Errorf("failed generate token in sign in method, error: %w", err)
 	}
@@ -116,7 +116,7 @@ func (s Services) SignUp(user models.UserDataInput) (string, error) {
 		return "", fmt.Errorf("create user DB proccess failed, error: %w", err)
 	}
 
-	token, err := s.tokener.GenerateToken(userId)
+	token, _, err := s.tokener.GenerateTokens(userId)
 	if err != nil {
 		return "", fmt.Errorf("generation token failed, error: %w", err)
 	}
