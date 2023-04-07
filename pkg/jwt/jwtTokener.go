@@ -15,57 +15,36 @@ type JwtCustomClaims struct {
 
 type JwtTokener struct {
 	signinKey []byte
-	tokenTTL  time.Duration
+	tokenTTL  int
 }
 
-func (j JwtTokener) GenerateToken(userId string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		ExpiresAt: time.Now().Add(time.Second * j.tokenTTL).Unix(),
-		IssuedAt:  time.Now().Unix(),
-		Subject:   userId,
-	})
+func (j JwtTokener) GenerateTokens(userId string) (string, string, error) {
+	token := jwt.New(jwt.SigningMethodHS256)
 
-	tokenString, err := token.SignedString(j.signinKey)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["userId"] = userId
+	claims["exp"] = time.Now().Add(time.Minute * time.Duration(j.tokenTTL)).Unix()
+
+	t, err := token.SignedString(j.signinKey)
 	if err != nil {
-		return "", fmt.Errorf("failed while signing token in generate token func, error: %w", err)
+		return "", "", fmt.Errorf("singing token failed, error: %w", err)
 	}
 
-	return tokenString, nil
+	refreshToken := jwt.New(jwt.SigningMethodHS256)
+	trClaims := refreshToken.Claims.(jwt.MapClaims)
+	trClaims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+
+	rt, err := refreshToken.SignedString(j.signinKey)
+	if err != nil {
+		return "", "", fmt.Errorf("refresh token signing failed, error: %w", err)
+	}
+
+	return t, rt, nil
 }
 
 func New(cfg config.Config) *JwtTokener {
 	return &JwtTokener{
 		signinKey: []byte(cfg.JWTSecret),
-		tokenTTL:  time.Second * time.Duration(cfg.JWTTokenTTL),
+		tokenTTL:  cfg.JWTTokenTTL,
 	}
 }
-
-// func (j JwtTokener) ParseToken(token string) (string, error) {
-// 	acceptedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-// 		_, ok := token.Method.(*jwt.SigningMethodHMAC)
-// 		if !ok {
-// 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-// 		}
-// 		return j.signinKey, nil
-// 	})
-
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed parse jwt in parsetoken func, error: %w", err)
-// 	}
-
-// 	if !acceptedToken.Valid {
-// 		return "", fmt.Errorf("invalid token")
-// 	}
-
-// 	claims, ok := acceptedToken.Claims.(jwt.MapClaims)
-// 	if !ok {
-// 		return "", fmt.Errorf("invalid claims")
-// 	}
-
-// 	subject, ok := claims["sub"].(string)
-// 	if !ok {
-// 		return "", fmt.Errorf("invalid claims - subject")
-// 	}
-
-// 	return subject, nil
-// }
