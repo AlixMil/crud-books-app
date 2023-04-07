@@ -31,6 +31,11 @@ type tokener interface {
 	GenerateTokens(userId string) (string, string, error)
 }
 
+type jwtCustomClaims struct {
+	UserId string `json:"userId"`
+	jwt.RegisteredClaims
+}
+
 type UserDB interface {
 	GetBook(bookToken string) (*models.BookData, error)
 	CreateUser(email, passwordHash string) (string, error)
@@ -280,6 +285,12 @@ func (e *EchoHandlers) UpdateBook(c echo.Context) error {
 func (e *EchoHandlers) DeleteBook(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, "sda")
+}
+
+func (e *EchoHandlers) TestAuth(c echo.Context) error {
+	user := c.Get("user").(*jwt.Token)
+	claims := user.Claims.(*jwtCustomClaims)
+	return c.String(http.StatusOK, fmt.Sprintf("your userId: %s", claims.UserId))
 }
 
 func New(db UserDB, storage ServiceStorage, jwtSecret string, serviceLayer Service, Tokener tokener) (*EchoHandlers, error) {
