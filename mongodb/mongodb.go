@@ -48,7 +48,6 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 	defer cancel()
 
 	filter := bson.M{"email": email}
-	// var decodingFind bson.M
 	userCur := m.usersCollection.FindOne(ctx, filter)
 	if userCur.Err() != mongo.ErrNoDocuments {
 		return "", fmt.Errorf("user with email %v already created", email)
