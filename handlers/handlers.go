@@ -241,14 +241,14 @@ func (e *EchoHandlers) SignUp(c echo.Context) error {
 
 	jwtTok, err := e.Services.SignUp(models.UserDataInput(signUpData))
 	if err != nil {
-		return err
+		return c.String(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 	}
 
 	bearerAuth := fmt.Sprintf("bearer %s", jwtTok)
 
-	c.Request().Header.Add("Authorization", bearerAuth)
+	c.Response().Header().Add("Authorization", bearerAuth)
 
-	return c.String(http.StatusOK, "Thanks for registration!")
+	return c.String(http.StatusOK, fmt.Sprintf("Thanks for registration!\nYour auth token: %s", bearerAuth))
 }
 
 func (e *EchoHandlers) SignIn(c echo.Context) error {
