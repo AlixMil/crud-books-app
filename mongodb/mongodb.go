@@ -48,18 +48,22 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 	defer cancel()
 
 	filter := bson.M{"email": email}
-	res := m.usersCollection.FindOne(ctx, filter)
-	if res.Err() == mongo.ErrNoDocuments {
+	// var decodingFind bson.M
+	userCur := m.usersCollection.FindOne(ctx, filter)
+	if userCur.Err() != mongo.ErrNoDocuments {
 		return "", fmt.Errorf("user with email %v already created", email)
 	}
+	fmt.Println("TEST")
 
-	doc := models.UserData{Email: email, PasswordHash: passwordHash, BooksIds: []string{}}
+	// doc := models.UserData{Email: email, PasswordHash: passwordHash, BooksIds: []string{}}
+	doc := bson.M{"email": email, "passwordHash": passwordHash, "booksIds": []bson.M{}}
 
 	cur, err := m.usersCollection.InsertOne(ctx, doc)
 	if err != nil {
 		return "", fmt.Errorf("failed collection insert in add user func, error: %w", err)
 	}
 	objId := fmt.Sprintf("%v", cur.InsertedID)
+
 	return objId, nil
 }
 
