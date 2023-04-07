@@ -28,8 +28,7 @@ type EchoHandlers struct {
 }
 
 type tokener interface {
-	GenerateToken(userId string) (string, error)
-	// ParseToken(token string) (string, error)
+	GenerateTokens(userId string) (string, string, error)
 }
 
 type UserDB interface {
@@ -119,7 +118,7 @@ func getUserId(context echo.Context) (string, error) {
 	claims := user.Claims.(jwt.MapClaims)
 	userId := claims["userId"].(string)
 	if userId == "" {
-		return "", fmt.Errorf("userId is empty!")
+		return "", fmt.Errorf("userId is empty")
 	}
 	return userId, nil
 }
