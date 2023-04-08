@@ -3,13 +3,11 @@ package handlers
 import (
 	"bytes"
 	"crud-books/models"
-	"crud-books/pkg/hasher"
+	jwt_package "crud-books/pkg/jwt"
 	"crud-books/services"
-	"crud-books/storageService/gofile/gofile_responses"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,35 +17,7 @@ import (
 )
 
 type EchoHandlers struct {
-	db             UserDB
-	ServiceStorage ServiceStorage
-	Hasher         hasher.Hasher
-	JWTSecret      string
-	Services       Service
-	Tokener        tokener
-}
-
-type tokener interface {
-	GenerateTokens(userId string) (string, string, error)
-}
-
-type jwtCustomClaims struct {
-	UserId string `json:"userId"`
-	jwt.RegisteredClaims
-}
-
-type UserDB interface {
-	GetBook(bookToken string) (*models.BookData, error)
-	CreateUser(email, passwordHash string) (string, error)
-	CreateBook(title, description, fileToken, emailOwner string) (string, error)
-	GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
-	GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error)
-	ChangeFieldOfBook(id, fieldName, fieldValue string) error
-	UploadFileData(fileToken, downloadPage string) error
-	GetFileData(fileToken string) (*models.FileData, error)
-	GetUserData(email string) (*models.UserData, error)
-	GetUserDataByInsertedId(userId string) (*models.UserData, error)
-	DeleteBook(tokenBook string) error
+	Services Service
 }
 
 type Service interface {
@@ -60,21 +30,7 @@ type Service interface {
 	GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error
 	DeleteBook(tokenBook string) error
-}
-
-type ServiceStorage interface {
-	UploadFile(file []byte, isTest bool) (*gofile_responses.UploadFileReturn, error)
-	DeleteFile(fileToken string) error
-}
-
-type UploadFormData struct {
-	File []byte `form:"file"`
-}
-
-type FormFileData struct {
-	ContentType string
-	Content     []byte
-	Name        string
+	GetUserByInsertedId(userId string) (*models.UserData, error)
 }
 
 type GetBookResponse struct {
@@ -138,7 +94,7 @@ func (e *EchoHandlers) CreateBook(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	userData, err := e.db.GetUserDataByInsertedId(userId)
+	userData, err := e.Services.GetUserByInsertedId(userId)
 	if err != nil {
 		return fmt.Errorf("getting user data by jwt user id failed, error: %w", err)
 	}
@@ -217,7 +173,7 @@ func (e EchoHandlers) GetBooksOfUser(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	userData, err := e.db.GetUserDataByInsertedId(userId)
+	userData, err := e.Services.GetUserByInsertedId(userId)
 	if err != nil {
 		return fmt.Errorf("getting user data by jwt user id failed, error: %w", err)
 	}
@@ -238,7 +194,6 @@ func (e EchoHandlers) GetBooksOfUser(c echo.Context) error {
 func (e *EchoHandlers) SignUp(c echo.Context) error {
 	var signUpData models.UserDataInput
 	err := c.Bind(&signUpData)
-	log.Println("sign up handler")
 	if err != nil {
 		return fmt.Errorf("sign up handler: %w", err)
 	}
@@ -266,11 +221,7 @@ func (e *EchoHandlers) SignIn(c echo.Context) error {
 		return fmt.Errorf("failed in signin service, error: %w", err)
 	}
 
-	if c.Request().Header.Get("Authorization") == "" {
-		c.Request().Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	} else {
-		c.Request().Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	}
+	c.Response().Header().Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"token": token,
@@ -289,16 +240,12 @@ func (e *EchoHandlers) DeleteBook(c echo.Context) error {
 
 func (e *EchoHandlers) TestAuth(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*jwtCustomClaims)
+	claims := user.Claims.(*jwt_package.JwtCustomClaims)
 	return c.String(http.StatusOK, fmt.Sprintf("your userId: %s", claims.UserId))
 }
 
-func New(db UserDB, storage ServiceStorage, jwtSecret string, serviceLayer Service, Tokener tokener) (*EchoHandlers, error) {
+func New(serviceLayer Service) (*EchoHandlers, error) {
 	return &EchoHandlers{
-		db:        db,
-		Hasher:    *hasher.New(),
-		JWTSecret: jwtSecret,
-		Services:  serviceLayer,
-		Tokener:   Tokener,
+		Services: serviceLayer,
 	}, nil
 }
