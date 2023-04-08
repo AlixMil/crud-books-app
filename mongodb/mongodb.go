@@ -20,9 +20,10 @@ const (
 )
 
 type MongoDB struct {
-	booksCollection mongo.Collection
-	usersCollection mongo.Collection
-	filesCollection mongo.Collection
+	booksCollection *mongo.Collection
+	usersCollection *mongo.Collection
+	filesCollection *mongo.Collection
+	db              *mongo.Database
 }
 
 type InsertedID struct {
@@ -250,16 +251,7 @@ func (m MongoDB) DeleteBook(tokenBook string) error {
 	return nil
 }
 
-func pingToDb(ctx context.Context, db mongo.Database) string {
-	var result bson.M
-	err := db.RunCommand(context.Background(), bson.M{"ping": 1}).Decode(&result)
-	if err != nil {
-		return fmt.Sprintf("%s", err)
-	}
-	return ""
-}
-
-func NewClient(cfg config.Config) (*MongoDB, error) {
+func (m *MongoDB) Connect(cfg config.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout*time.Second)
 	defer cancel()
 	credential := options.Credential{
@@ -272,22 +264,29 @@ func NewClient(cfg config.Config) (*MongoDB, error) {
 
 	client, err := mongo.Connect(ctx, opts)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("connect to db failed, error: %w", err)
 	}
 
 	db := client.Database(cfg.DatabaseName)
+	m.booksCollection = db.Collection(booksCollectionName)
+	m.usersCollection = db.Collection(usersCollectionName)
+	m.filesCollection = db.Collection(filesCollectionName)
+	m.db = db
+	return nil
+}
 
+func (m MongoDB) Ping() error {
 	ctxPing, cancelPing := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancelPing()
 
-	pingSummary := pingToDb(ctxPing, *db)
-	if pingSummary != "" {
-		return nil, fmt.Errorf("ping error: %s", pingSummary)
+	var result bson.M
+	err := m.db.RunCommand(ctxPing, bson.M{"ping": 1}).Decode(&result)
+	if err != mongo.ErrNoDocuments {
+		return fmt.Errorf("%s", result)
 	}
+	return nil
+}
 
-	return &MongoDB{
-		booksCollection: *db.Collection(booksCollectionName),
-		usersCollection: *db.Collection(usersCollectionName),
-		filesCollection: *db.Collection(filesCollectionName),
-	}, nil
+func New() *MongoDB {
+	return &MongoDB{}
 }
