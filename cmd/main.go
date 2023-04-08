@@ -18,9 +18,14 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	db, err := mongodb.NewClient(*cfg)
+	db := mongodb.New()
+	err = db.Connect(*cfg)
 	if err != nil {
-		log.Fatalf("Database init failed: %v", err)
+		log.Fatalf("database init failed: %v", err)
+	}
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("db ping action was not success")
 	}
 
 	storage := gofile.New(cfg.GoFileServiceApiKey, cfg.GoFileFolderToken)
@@ -31,7 +36,7 @@ func main() {
 
 	services := services.New(db, *tokener, *storage, *hasher)
 
-	handlers, err := handlers.New(db, storage, cfg.JWTSecret, services, tokener)
+	handlers, err := handlers.New(services)
 	if err != nil {
 		log.Fatalf("handlers init: %v", err)
 	}
