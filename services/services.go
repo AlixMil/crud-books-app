@@ -2,18 +2,15 @@ package services
 
 import (
 	"crud-books/models"
-	"crud-books/pkg/hasher"
 	"crud-books/storageService/gofile/gofile_responses"
 	"fmt"
-	"log"
 )
 
+//go:generate mockgen -source=services.go -destination=mocks/services_mock.go
 type Tokener interface {
 	GenerateTokens(userId string) (string, string, error)
-	// ParseToken(token string) (string, error)
 }
 
-//go:generate mockgen -source=services.go -destination=mocks/mock.go
 type DB interface {
 	CreateUser(email, passwordHash string) (string, error)
 	CreateBook(title, description, fileToken, emailOwner string) (string, error)
@@ -33,11 +30,16 @@ type Storager interface {
 	DeleteFile(fileToken string) error
 }
 
+type Hasher interface {
+	GetNewHash(password string) (string, error)
+	CompareHashWithPassword(password, hash string) error
+}
+
 type Services struct {
 	db      DB
 	tokener Tokener
 	storage Storager
-	hasher  hasher.Hasher
+	hasher  Hasher
 }
 
 type GetBookResponse struct {
@@ -105,6 +107,14 @@ func (s Services) SignIn(user models.UserDataInput) (string, error) {
 	return token, nil
 }
 
+func (s Services) GetUserByInsertedId(userId string) (*models.UserData, error) {
+	usData, err := s.db.GetUserDataByInsertedId(userId)
+	if err != nil {
+		return nil, fmt.Errorf("userData by user id fetch failed, error: %w", err)
+	}
+	return usData, nil
+}
+
 func (s Services) SignUp(user models.UserDataInput) (string, error) {
 	passwordHash, err := s.hasher.GetNewHash(user.Password)
 	if err != nil {
@@ -120,7 +130,6 @@ func (s Services) SignUp(user models.UserDataInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generation token failed, error: %w", err)
 	}
-	log.Println("services signup")
 
 	return token, nil
 }
@@ -211,7 +220,7 @@ func (s Services) DeleteBook(tokenBook string) error {
 	return nil
 }
 
-func New(db DB, tokener Tokener, storage Storager, hasher hasher.Hasher) *Services {
+func New(db DB, tokener Tokener, storage Storager, hasher Hasher) *Services {
 	return &Services{
 		db:      db,
 		tokener: tokener,
