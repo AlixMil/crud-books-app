@@ -1,6 +1,7 @@
 package server
 
 import (
+	jwt_package "crud-books/pkg/jwt"
 	"fmt"
 	"net/http"
 
@@ -16,22 +17,6 @@ type Server struct {
 	jwtSecret string
 }
 
-type jwtCustomClaims struct {
-	Email  string
-	UserId string
-	jwt.RegisteredClaims
-}
-
-func New(port string, JwtSecret string) Server {
-	server := Server{
-		port:      port,
-		server:    echo.New(),
-		jwtSecret: JwtSecret,
-	}
-
-	return server
-}
-
 type Handlers interface {
 	UploadFile(c echo.Context) error
 	SignUp(c echo.Context) error
@@ -42,20 +27,21 @@ type Handlers interface {
 	GetBooksOfUser(c echo.Context) error
 	UpdateBook(c echo.Context) error
 	DeleteBook(c echo.Context) error
+	TestAuth(c echo.Context) error
 }
 
 func (s Server) InitHandlers(handlers Handlers) {
 	// JWT Auth settings
 	s.server.Use(echojwt.WithConfig(echojwt.Config{
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(jwtCustomClaims)
-		},
-		SigningKey: s.jwtSecret,
+		SigningKey: []byte(s.jwtSecret),
 		Skipper: func(c echo.Context) bool {
 			if c.Request().URL.Path == "/login" || c.Request().URL.Path == "/register" || c.Request().URL.Path == "/books" {
 				return true
 			}
 			return false
+		},
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return new(jwt_package.JwtCustomClaims)
 		},
 	}))
 	// CORS settings
@@ -75,8 +61,20 @@ func (s Server) InitHandlers(handlers Handlers) {
 	s.server.Add(http.MethodPost, "/books", handlers.GetBooksOfUser)
 	s.server.Add(http.MethodPatch, "/books/:id", handlers.UpdateBook)
 	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
+
+	s.server.Add(http.MethodGet, "/testAuth", handlers.TestAuth)
 }
 
 func (s Server) Start() error {
 	return s.server.Start(fmt.Sprintf(":%s", s.port))
+}
+
+func New(port string, JwtSecret string) Server {
+	server := Server{
+		port:      port,
+		server:    echo.New(),
+		jwtSecret: JwtSecret,
+	}
+
+	return server
 }
