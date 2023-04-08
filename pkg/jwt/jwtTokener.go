@@ -9,7 +9,7 @@ import (
 )
 
 type JwtCustomClaims struct {
-	Token string `json:"token"`
+	UserId string `json:"userId"`
 	jwt.RegisteredClaims
 }
 
