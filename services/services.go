@@ -2,7 +2,6 @@ package services
 
 import (
 	"crud-books/models"
-	"crud-books/storageService/gofile/gofile_responses"
 	"fmt"
 )
 
@@ -26,7 +25,7 @@ type DB interface {
 }
 
 type Storager interface {
-	UploadFile(file []byte, isTest bool) (*gofile_responses.UploadFileReturn, error)
+	UploadFile(file []byte, isTest bool) (*models.UploadFileReturn, error)
 	DeleteFile(fileToken string) error
 }
 
@@ -107,14 +106,6 @@ func (s Services) SignIn(user models.UserDataInput) (string, error) {
 	return token, nil
 }
 
-func (s Services) GetUserByInsertedId(userId string) (*models.UserData, error) {
-	usData, err := s.db.GetUserDataByInsertedId(userId)
-	if err != nil {
-		return nil, fmt.Errorf("userData by user id fetch failed, error: %w", err)
-	}
-	return usData, nil
-}
-
 func (s Services) SignUp(user models.UserDataInput) (string, error) {
 	passwordHash, err := s.hasher.GetNewHash(user.Password)
 	if err != nil {
@@ -134,22 +125,21 @@ func (s Services) SignUp(user models.UserDataInput) (string, error) {
 	return token, nil
 }
 
-func (s Services) ParseToken(token string) (string, error) {
-	// userId, err := s.tokener.ParseToken(token)
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed parsing token, error: %w", err)
-	// }
-
-	return "userId", nil
+func (s Services) GetUserByInsertedId(userId string) (*models.UserData, error) {
+	usData, err := s.db.GetUserDataByInsertedId(userId)
+	if err != nil {
+		return nil, fmt.Errorf("userData by user id fetch failed, error: %w", err)
+	}
+	return usData, nil
 }
 
 func (s Services) CreateBook(title, description, fileToken, userEmail string) (string, error) {
-	bookToken, err := s.db.CreateBook(title, description, fileToken, userEmail)
+	fileToken, err := s.db.CreateBook(title, description, fileToken, userEmail)
 	if err != nil {
 		return "", fmt.Errorf("create book failed, error: %w", err)
 	}
 
-	return bookToken, nil
+	return fileToken, nil
 }
 
 func (s Services) UploadFile(file []byte) (string, error) {
@@ -176,30 +166,22 @@ func (s Services) GetBook(bookToken string) (*GetBookResponse, error) {
 	}, nil
 }
 
-func (s Services) GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
+func (s Services) GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
 	var books *[]models.BookData
-	validateParams := getParamsWValidation("", filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
+	validateParams := getParamsWValidation(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
 	if validateParams.Email == "" {
-		_, err := s.db.GetListBooksPublic(validateParams)
+		booksArr, err := s.db.GetListBooksPublic(validateParams)
 		if err != nil {
 			return nil, fmt.Errorf("get list of books public, error: %w", err)
 		}
+		books = booksArr
 	}
 	if validateParams.Email != "" {
-		_, err := s.db.GetListBooksOfUser(validateParams)
+		booksArr, err := s.db.GetListBooksOfUser(validateParams)
 		if err != nil {
 			return nil, fmt.Errorf("get list of books error: %w", err)
 		}
-	}
-	return books, nil
-}
-
-func (s Services) GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
-	validParams := getParamsWValidation(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
-
-	books, err := s.db.GetListBooksOfUser(validParams)
-	if err != nil {
-		return nil, fmt.Errorf("get list of books method failed, error: %w", err)
+		books = booksArr
 	}
 	return books, nil
 }
