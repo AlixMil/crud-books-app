@@ -20,14 +20,14 @@ type EchoHandlers struct {
 	Services Service
 }
 
+//go:generate mockgen -source=handlers.go -destination=./mocks/handlers_mock.go
 type Service interface {
 	SignIn(user models.UserDataInput) (string, error)
 	SignUp(user models.UserDataInput) (string, error)
 	CreateBook(title, description, fileToken, userEmail string) (string, error)
 	UploadFile(file []byte) (string, error)
 	GetBook(bookToken string) (*services.GetBookResponse, error)
-	GetBooksPublic(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
-	GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
+	GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error
 	DeleteBook(tokenBook string) error
 	GetUserByInsertedId(userId string) (*models.UserData, error)
@@ -161,7 +161,7 @@ func (e EchoHandlers) GetBooksPublic(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}
-	books, err := e.Services.GetBooksPublic(*filter, *sort)
+	books, err := e.Services.GetBooks(*filter, *sort)
 	if err != nil {
 		return fmt.Errorf("service layer get books public error: %w", err)
 	}
@@ -183,7 +183,7 @@ func (e EchoHandlers) GetBooksOfUser(c echo.Context) error {
 		return fmt.Errorf("%w", err)
 	}
 
-	books, err := e.Services.GetListBooksOfUser(*filter, *sort)
+	books, err := e.Services.GetBooks(*filter, *sort)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "")
 	}
