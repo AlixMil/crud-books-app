@@ -30,26 +30,7 @@ type Handlers interface {
 	TestAuth(c echo.Context) error
 }
 
-func (s Server) InitHandlers(handlers Handlers) {
-	// JWT Auth settings
-	s.server.Use(echojwt.WithConfig(echojwt.Config{
-		SigningKey: []byte(s.jwtSecret),
-		Skipper: func(c echo.Context) bool {
-			if c.Request().URL.Path == "/login" || c.Request().URL.Path == "/register" || c.Request().URL.Path == "/books" {
-				return true
-			}
-			return false
-		},
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(jwt_package.JwtCustomClaims)
-		},
-	}))
-	// CORS settings
-	s.server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*", "*"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
-	}))
-
+func (s Server) UseRouters(handlers Handlers) {
 	// public paths
 	s.server.Add(http.MethodPost, "/login", handlers.SignIn)
 	s.server.Add(http.MethodPost, "/register", handlers.SignUp)
@@ -63,6 +44,28 @@ func (s Server) InitHandlers(handlers Handlers) {
 	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
 
 	s.server.Add(http.MethodGet, "/testAuth", handlers.TestAuth)
+}
+
+func (s Server) InitMiddlewares() {
+	// JWT Auth settings
+	s.server.Use(echojwt.WithConfig(echojwt.Config{
+		SigningKey: []byte(s.jwtSecret),
+		Skipper: func(c echo.Context) bool {
+			path := c.Request().URL.Path
+			if path == "/login" || path == "/register" || path == "/books" {
+				return true
+			}
+			return false
+		},
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return new(jwt_package.JwtCustomClaims)
+		},
+	}))
+	// CORS settings
+	s.server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*", "*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
 }
 
 func (s Server) Start() error {
