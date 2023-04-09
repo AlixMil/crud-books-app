@@ -40,22 +40,17 @@ type GetBookResponse struct {
 }
 
 func (e *EchoHandlers) UploadFile(c echo.Context) error {
-	file, err := c.FormFile("file")
+	c.Request().ParseMultipartForm(32 << 20)
+	file, _, err := c.Request().FormFile("file")
 	if err != nil {
-		return err
-	}
-	if file.Header.Get("Content-Type") != "application/pdf" {
-		return c.String(http.StatusBadRequest, "Please attach PDF file")
-	}
-
-	fileMultipart, err := file.Open()
-	if err != nil {
-		return err
+		return fmt.Errorf("read multipart form failed, error: %w", err)
 	}
 	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, fileMultipart); err != nil {
-		return err
+	byteCont, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("reading file failed, error: %w", err)
 	}
+	buf.Write(byteCont)
 
 	fileToken, err := e.Services.UploadFile(buf.Bytes())
 	if err != nil {
@@ -65,16 +60,10 @@ func (e *EchoHandlers) UploadFile(c echo.Context) error {
 	return c.String(http.StatusOK, fileToken)
 }
 
-type CreateBookRequest struct {
-	FileToken   string `json:"fileToken"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
-func getUserId(context echo.Context) (string, error) {
-	user := context.Get("user").(*jwt.Token)
-	if user == nil {
-		return "", fmt.Errorf("getting user from context in getUserId failed")
+func getUserIdFromCtx(context echo.Context) (string, error) {
+	user, ok := context.Get("user").(*jwt.Token)
+	if !ok {
+		return "", fmt.Errorf("get user id from ctx failed, jwt token missed")
 	}
 	claims := user.Claims.(jwt.MapClaims)
 	userId := claims["userId"].(string)
@@ -85,12 +74,12 @@ func getUserId(context echo.Context) (string, error) {
 }
 
 func (e *EchoHandlers) CreateBook(c echo.Context) error {
-	var reqBody CreateBookRequest
+	var reqBody models.CreateBookRequest
 	err := c.Bind(&reqBody)
 	if err != nil {
 		return fmt.Errorf("failed of reading (binding) request body in create book func of handlers. Error: %w", err)
 	}
-	userId, err := getUserId(c)
+	userId, err := getUserIdFromCtx(c)
 	if err != nil {
 		return err
 	}
@@ -99,11 +88,11 @@ func (e *EchoHandlers) CreateBook(c echo.Context) error {
 		return fmt.Errorf("getting user data by jwt user id failed, error: %w", err)
 	}
 
-	bookToken, err := e.Services.CreateBook(reqBody.Title, reqBody.Description, reqBody.FileToken, userData.Email)
+	fileToken, err := e.Services.CreateBook(reqBody.Title, reqBody.Description, reqBody.FileToken, userData.Email)
 	if err != nil {
 		return fmt.Errorf("create book failed, error: %w", err)
 	}
-	return c.String(http.StatusOK, bookToken)
+	return c.String(http.StatusOK, fileToken)
 }
 
 func (e *EchoHandlers) GetBook(c echo.Context) error {
@@ -169,7 +158,7 @@ func (e EchoHandlers) GetBooksPublic(c echo.Context) error {
 }
 
 func (e EchoHandlers) GetBooksOfUser(c echo.Context) error {
-	userId, err := getUserId(c)
+	userId, err := getUserIdFromCtx(c)
 	if err != nil {
 		return err
 	}
@@ -198,7 +187,7 @@ func (e *EchoHandlers) SignUp(c echo.Context) error {
 		return fmt.Errorf("sign up handler: %w", err)
 	}
 
-	jwtTok, err := e.Services.SignUp(models.UserDataInput(signUpData))
+	jwtTok, err := e.Services.SignUp(signUpData)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 	}
@@ -216,7 +205,7 @@ func (e *EchoHandlers) SignIn(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("sign in handler: %w", err)
 	}
-	token, err := e.Services.SignIn(models.UserDataInput(signInData))
+	token, err := e.Services.SignIn(signInData)
 	if err != nil {
 		return fmt.Errorf("failed in signin service, error: %w", err)
 	}
