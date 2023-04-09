@@ -75,3 +75,9 @@ type UploadServerSummary struct {
 		Server string `json:"server"`
 	} `json:"data"`
 }
+
+type CreateBookRequest struct {
+	FileToken   string `json:"fileToken"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
