@@ -13,7 +13,7 @@ type BookData struct {
 	Description string `bson:"description"`
 	FileToken   string `bson:"fileToken"`
 	Url         string `bson:"url"`
-	Owner       string `bson:"owner"`
+	OwnerEmail  string `bson:"owner"`
 }
 
 type UserDataInput struct {
@@ -48,4 +48,30 @@ type ValidateDataInGetLists struct {
 	Direction int
 
 	Offset int
+}
+
+// STORAGE RESPONSES
+
+type UploadFileReturn struct {
+	DownloadPage string
+	FileToken    string
+}
+
+type UploadFileResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		DownloadPage string `json:"downloadPage"`
+		Code         string `json:"code"`
+		ParentFolder string `json:"parentFolder"`
+		FileID       string `json:"fileId"`
+		FileName     string `json:"fileName"`
+		Md5          string `json:"md5"`
+	} `json:"data"`
+}
+
+type UploadServerSummary struct {
+	Status string `json:"status"`
+	Data   struct {
+		Server string `json:"server"`
+	} `json:"data"`
 }
