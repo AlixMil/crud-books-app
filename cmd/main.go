@@ -25,7 +25,7 @@ func main() {
 	}
 	err = db.Ping()
 	if err != nil {
-		log.Fatalf("db ping action was not success")
+		log.Fatalf("database ping execute error")
 	}
 
 	storage := gofile.New(cfg.GoFileServiceApiKey, cfg.GoFileFolderToken)
@@ -42,7 +42,8 @@ func main() {
 	}
 
 	srv := server.New("4001", cfg.JWTSecret)
-	srv.InitHandlers(handlers)
+	srv.InitMiddlewares()
+	srv.UseRouters(handlers)
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server is not started. Error: %v", err)
 	}
