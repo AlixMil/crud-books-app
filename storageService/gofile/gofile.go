@@ -2,8 +2,8 @@ package gofile
 
 import (
 	"bytes"
+	"crud-books/models"
 	storageService_helpers "crud-books/storageService"
-	"crud-books/storageService/gofile/gofile_responses"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,7 +54,7 @@ func (s Storage) getServerToUpload() (string, error) {
 		return "", fmt.Errorf("error in reading body of req in getServerToUpload: %w", err)
 	}
 
-	jBody := gofile_responses.UploadServerSummary{}
+	jBody := models.UploadServerSummary{}
 	err = json.Unmarshal(jsonRes, &jBody)
 	if err != nil {
 		return "", fmt.Errorf("error in unmarshalling of req body in getServerToUpload: %w", err)
@@ -91,7 +91,7 @@ func getBodyWriter(file []byte, apiKey, folderId string) (*bytes.Buffer, string,
 	return body, writer.FormDataContentType(), nil
 }
 
-func (s Storage) UploadFile(file []byte, isTest bool) (*gofile_responses.UploadFileReturn, error) {
+func (s Storage) UploadFile(file []byte, isTest bool) (*models.UploadFileReturn, error) {
 	serverToUpload, err := s.getServerToUpload()
 	if err != nil {
 		return nil, fmt.Errorf("error in serverToUpload getting of UploadFile: %w", err)
@@ -127,13 +127,13 @@ func (s Storage) UploadFile(file []byte, isTest bool) (*gofile_responses.UploadF
 		return nil, err
 	}
 
-	var uploadResp gofile_responses.UploadFileResponse
+	var uploadResp models.UploadFileResponse
 	err = json.Unmarshal(jsonResponse, &uploadResp)
 	if err != nil {
 		return nil, fmt.Errorf("error in unmarshal of uploadfile: %w", err)
 	}
 
-	return &gofile_responses.UploadFileReturn{DownloadPage: uploadResp.Data.DownloadPage, FileToken: uploadResp.Data.FileID}, nil
+	return &models.UploadFileReturn{DownloadPage: uploadResp.Data.DownloadPage, FileToken: uploadResp.Data.FileID}, nil
 }
 
 func (s Storage) DeleteFile(fileToken string) error {
