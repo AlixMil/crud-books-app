@@ -41,12 +41,6 @@ type Services struct {
 	hasher  Hasher
 }
 
-type GetBookResponse struct {
-	FileUrl     string `json:"fileUrl"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
 const (
 	sortFieldDefaultParam = "title"
 	directionDefaultParam = 1
@@ -154,13 +148,13 @@ func (s Services) UploadFile(file []byte) (string, error) {
 	return res.FileToken, nil
 }
 
-func (s Services) GetBook(bookToken string) (*GetBookResponse, error) {
+func (s Services) GetBook(bookToken string) (*models.GetBookResponse, error) {
 	bookData, err := s.db.GetBook(bookToken)
 	if err != nil {
 		return nil, fmt.Errorf("get book in get book of service failed, error: %w", err)
 	}
-	return &GetBookResponse{
-		FileUrl:     bookData.Url,
+	return &models.GetBookResponse{
+		FileURL:     bookData.Url,
 		Title:       bookData.Title,
 		Description: bookData.Description,
 	}, nil
