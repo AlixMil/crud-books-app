@@ -189,3 +189,26 @@ func Test_CreateBook(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, reqBody.FileToken, string(res))
 }
+
+func Test_GetBook(t *testing.T) {
+	bookId := "1513"
+	bookResp := models.GetBookResponse{
+		Title:       "Story of islands",
+		Description: "Terrible island stories",
+		FileURL:     "google.com",
+	}
+	rec, c := getRequestWRecJson(fmt.Sprintf("/books/%s", bookId), http.MethodGet, &bytes.Buffer{})
+	mocks := getMocks(t)
+
+	mocks.serviceLayer.EXPECT().GetBook(bookId).Return(&bookResp, nil)
+
+	h, _ := New(mocks.serviceLayer)
+
+	err := h.GetBook(c)
+	require.NoError(t, err)
+	var res *models.GetBookResponse
+	fmt.Println(rec.Body)
+	err = json.Unmarshal(rec.Body.Bytes(), &res)
+	require.NoError(t, err)
+	assert.Equal(t, bookResp, *res)
+}
