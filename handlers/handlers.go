@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"crud-books/models"
 	jwt_package "crud-books/pkg/jwt"
-	"crud-books/services"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,17 +24,11 @@ type Service interface {
 	SignUp(user models.UserDataInput) (string, error)
 	CreateBook(title, description, fileToken, userEmail string) (string, error)
 	UploadFile(file []byte) (string, error)
-	GetBook(bookToken string) (*services.GetBookResponse, error)
+	GetBook(bookToken string) (*models.GetBookResponse, error)
 	GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error
 	DeleteBook(tokenBook string) error
 	GetUserByInsertedId(userId string) (*models.UserData, error)
-}
-
-type GetBookResponse struct {
-	FileURL     string `json:"fileURL"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
 }
 
 func (e *EchoHandlers) UploadFile(c echo.Context) error {
@@ -100,18 +92,10 @@ func (e *EchoHandlers) GetBook(c echo.Context) error {
 	bookToken := strings.Replace(path, "/books/", "", 1)
 	bookData, err := e.Services.GetBook(bookToken)
 	if err != nil {
-		return fmt.Errorf("attempt to receive book data from db failed, error: %w", err)
+		return fmt.Errorf("attempting to receive book data from db failed, error: %w", err)
 	}
-	response := GetBookResponse{
-		FileURL:     bookData.FileUrl,
-		Title:       bookData.Title,
-		Description: bookData.Description,
-	}
-	marshResp, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("marshaling after get book failed, error: %w", err)
-	}
-	return c.JSON(http.StatusOK, marshResp)
+
+	return c.JSON(http.StatusOK, bookData)
 }
 
 func getBooksParamsFieldFiller(c echo.Context, userEmail string) (*models.Filter, *models.Sort, error) {
