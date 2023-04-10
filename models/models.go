@@ -81,3 +81,9 @@ type CreateBookRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 }
+
+type GetBookResponse struct {
+	FileURL     string `json:"fileURL"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
