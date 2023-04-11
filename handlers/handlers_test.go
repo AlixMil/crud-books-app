@@ -237,6 +237,10 @@ func getReqWRecCtxParams(wantFilt models.Filter, wantSort models.Sort) (*httptes
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/books?search=%s&limit=%d&sort=%s&direction=%s", wantFilt.Search, wantSort.Limit, wantSort.SortField, wantSort.Direction), nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
+	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userId": defaultUserId,
+	})
+	c.Set("user", auth)
 	return rec, &c
 }
 
@@ -281,4 +285,55 @@ func Test_GetBooksPublic(t *testing.T) {
 	var received []models.BookData
 	json.Unmarshal(rec.Body.Bytes(), &received)
 	assert.Equal(t, true, reflect.DeepEqual(wantBooks, received))
+}
+
+func TestGetBooksOfUser(t *testing.T) {
+	userData := models.UserData{
+		Id:           defaultUserId,
+		Email:        "keer@gmail.com",
+		PasswordHash: "581937ikajsdkajsf",
+		BooksIds:     []string{},
+	}
+	mocks := getMocks(t)
+	wantFilt := models.Filter{
+		Email:  userData.Email,
+		Search: "sosage",
+	}
+	wantSort := models.Sort{
+		SortField: "title",
+		Limit:     5,
+		Direction: "desc",
+		Offset:    0,
+	}
+
+	booksResponse := []models.BookData{
+		{
+			Id:          "123",
+			Title:       "title1",
+			Description: "desc",
+			FileToken:   "1241",
+			Url:         "url",
+			OwnerEmail:  "joajsd@gmail.com",
+		},
+		{
+			Id:          "1233",
+			Title:       "title14",
+			Description: "desc4",
+			FileToken:   "12414",
+			Url:         "url4",
+			OwnerEmail:  "joajsd@gmail.com4",
+		},
+	}
+	rec, c := getReqWRecCtxParams(wantFilt, wantSort)
+	h := New(mocks.serviceLayer)
+	mocks.serviceLayer.EXPECT().GetUserByInsertedId(defaultUserId).Return(&userData, nil)
+	mocks.serviceLayer.EXPECT().GetBooks(wantFilt, wantSort).Return(&booksResponse, nil)
+
+	err := h.GetBooksOfUser(*c)
+	require.NoError(t, err)
+	var res *[]models.BookData
+
+	json.Unmarshal(rec.Body.Bytes(), &res)
+	assert.Equal(t, true, reflect.DeepEqual(booksResponse, *res))
+
 }
