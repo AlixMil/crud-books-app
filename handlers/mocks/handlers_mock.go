@@ -6,7 +6,6 @@ package mock_handlers
 
 import (
 	models "crud-books/models"
-	services "crud-books/services"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -65,10 +64,10 @@ func (mr *MockServiceMockRecorder) DeleteBook(tokenBook interface{}) *gomock.Cal
 }
 
 // GetBook mocks base method.
-func (m *MockService) GetBook(bookToken string) (*services.GetBookResponse, error) {
+func (m *MockService) GetBook(bookToken string) (*models.GetBookResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBook", bookToken)
-	ret0, _ := ret[0].(*services.GetBookResponse)
+	ret0, _ := ret[0].(*models.GetBookResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -92,21 +91,6 @@ func (m *MockService) GetBooks(filter models.Filter, sorting models.Sort) (*[]mo
 func (mr *MockServiceMockRecorder) GetBooks(filter, sorting interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBooks", reflect.TypeOf((*MockService)(nil).GetBooks), filter, sorting)
-}
-
-// GetListBooksOfUser mocks base method.
-func (m *MockService) GetListBooksOfUser(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetListBooksOfUser", filter, sorting)
-	ret0, _ := ret[0].(*[]models.BookData)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetListBooksOfUser indicates an expected call of GetListBooksOfUser.
-func (mr *MockServiceMockRecorder) GetListBooksOfUser(filter, sorting interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListBooksOfUser", reflect.TypeOf((*MockService)(nil).GetListBooksOfUser), filter, sorting)
 }
 
 // GetUserByInsertedId mocks base method.
@@ -155,17 +139,17 @@ func (mr *MockServiceMockRecorder) SignUp(user interface{}) *gomock.Call {
 }
 
 // UpdateBook mocks base method.
-func (m *MockService) UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error {
+func (m *MockService) UpdateBook(bookId string, updater models.BookDataUpdater) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBook", bookField, tokenBook, fieldName, fieldValue)
+	ret := m.ctrl.Call(m, "UpdateBook", bookId, updater)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateBook indicates an expected call of UpdateBook.
-func (mr *MockServiceMockRecorder) UpdateBook(bookField, tokenBook, fieldName, fieldValue interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateBook(bookId, updater interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockService)(nil).UpdateBook), bookField, tokenBook, fieldName, fieldValue)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockService)(nil).UpdateBook), bookId, updater)
 }
 
 // UploadFile mocks base method.

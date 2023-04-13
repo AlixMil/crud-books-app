@@ -73,20 +73,6 @@ func (m *MockDB) EXPECT() *MockDBMockRecorder {
 	return m.recorder
 }
 
-// ChangeFieldOfBook mocks base method.
-func (m *MockDB) ChangeFieldOfBook(id, fieldName, fieldValue string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeFieldOfBook", id, fieldName, fieldValue)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ChangeFieldOfBook indicates an expected call of ChangeFieldOfBook.
-func (mr *MockDBMockRecorder) ChangeFieldOfBook(id, fieldName, fieldValue interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeFieldOfBook", reflect.TypeOf((*MockDB)(nil).ChangeFieldOfBook), id, fieldName, fieldValue)
-}
-
 // CreateBook mocks base method.
 func (m *MockDB) CreateBook(title, description, fileToken, emailOwner string) (string, error) {
 	m.ctrl.T.Helper()
@@ -219,6 +205,20 @@ func (m *MockDB) GetUserDataByInsertedId(userId string) (*models.UserData, error
 func (mr *MockDBMockRecorder) GetUserDataByInsertedId(userId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDataByInsertedId", reflect.TypeOf((*MockDB)(nil).GetUserDataByInsertedId), userId)
+}
+
+// UpdateBook mocks base method.
+func (m *MockDB) UpdateBook(bookId string, updater models.BookDataUpdater) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateBook", bookId, updater)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateBook indicates an expected call of UpdateBook.
+func (mr *MockDBMockRecorder) UpdateBook(bookId, updater interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockDB)(nil).UpdateBook), bookId, updater)
 }
 
 // UploadFileData mocks base method.
