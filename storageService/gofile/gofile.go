@@ -9,6 +9,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -158,7 +160,7 @@ func (s Storage) DeleteFile(fileToken string) error {
 	if err != nil {
 		return fmt.Errorf("error in request of delete file: %w", err)
 	}
-	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	_, err = s.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("error when sendind response of delete file: %w", err)
