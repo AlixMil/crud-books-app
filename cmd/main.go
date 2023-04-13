@@ -36,7 +36,7 @@ func main() {
 
 	services := services.New(db, *tokener, *storage, *hasher)
 
-	handlers, err := handlers.New(services)
+	handlers := handlers.New(services)
 	if err != nil {
 		log.Fatalf("handlers init: %v", err)
 	}
