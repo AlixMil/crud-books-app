@@ -16,6 +16,12 @@ type BookData struct {
 	OwnerEmail  string `bson:"owner"`
 }
 
+type BookDataUpdater struct {
+	FileToken   string `json:"fileToken"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 type UserDataInput struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
