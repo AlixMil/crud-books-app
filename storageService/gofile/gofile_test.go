@@ -57,7 +57,7 @@ func uploadFileServerHandler(t *testing.T) http.Handler {
 	return handlerHelper(t, "./testsData/uploadFileServerResponse.json")
 }
 
-func TestService_UploadFile_Success(t *testing.T) {
+func Test_Service_UploadFile(t *testing.T) {
 	s := New(fakeApikey, "b0rELG")
 	uploadBody := []byte("Hello, World!")
 
@@ -71,4 +71,31 @@ func TestService_UploadFile_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "https://gofile.io/d/Z19n9a", got.DownloadPage)
+}
+
+func Test_DeleteFile(t *testing.T) {
+	fileToken := "123"
+	s := New(fakeApikey, "b0rELG")
+	type jsonScheme struct {
+		ContentsId string `json:"contentsId"`
+		Token      string `json:"token"`
+	}
+	var bodyJson jsonScheme
+
+	mockServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			errMsg := []byte("method doesn't founded")
+			w.Write(errMsg)
+		}
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		err = json.Unmarshal(body, &bodyJson)
+		require.NoError(t, err)
+		assert.Equal(t, fileToken, bodyJson.ContentsId)
+		assert.Equal(t, fakeApikey, bodyJson.Token)
+	}))
+
+	urlDeleteFile = mockServ.URL
+	err := s.DeleteFile(fileToken)
+	require.NoError(t, err)
 }
