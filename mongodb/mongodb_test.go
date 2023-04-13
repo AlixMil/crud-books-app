@@ -1,59 +1,47 @@
 package mongodb
 
 import (
+	"crud-books/models"
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-func Test_ValidateFunc(t *testing.T) {
-	t.Run("complete", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "title"
-		direction := "asc"
-		limit := 12
+func Test_GetBook(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	mt.Run("getBookSuccess", func(m *mtest.T) {
+		bookColl := m.Client.Database("crudbooks").Collection(booksCollectionName)
+		book := models.BookData{
+			Id:          "123",
+			Title:       "TITLE",
+			Description: "DESCRIPTION",
+			FileToken:   "FILETOKEN",
+			Url:         "URL",
+			OwnerEmail:  "OWNER",
+		}
 
-		params, err := GetParamsWValidate(email, search, sort, direction, limit)
-		require.NoError(t, err)
-		assert.Equal(t, params.Email, email)
-		assert.Equal(t, params.SortField, sort)
-		assert.Equal(t, params.Limit, limit)
-	})
-	t.Run("error_direction", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "title"
-		direction := "dfajks"
-		limit := 12
+		m.AddMockResponses(mtest.CreateCursorResponse(1, "crubooks.books", mtest.FirstBatch, bson.D{
+			{"_id", book.Id},
+			{"title", book.Title},
+			{"description", book.Description},
+			{"fileToken", book.FileToken},
+			{"url", book.Url},
+			{"owner", book.OwnerEmail},
+		}))
+		db := New()
+		db.booksCollection = bookColl
 
-		_, err := GetParamsWValidate(email, search, sort, direction, limit)
+		res, err := db.GetBook("123")
+		fmt.Println(res)
+		assert.Equal(t, book.Title, res.Title)
+		require.NoError(m, err)
 
-		assert.EqualError(t, err, "provided direction parameter incorrect")
-	})
-
-	t.Run("error_SortField", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "ajskda"
-		direction := "asc"
-		limit := 12
-
-		_, err := GetParamsWValidate(email, search, sort, direction, limit)
-
-		assert.EqualError(t, err, "provided sorting parameter incorrect")
-	})
-
-	t.Run("error_limit", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "date"
-		direction := "asc"
-		limit := 12343
-
-		_, err := GetParamsWValidate(email, search, sort, direction, limit)
-
-		assert.EqualError(t, err, "you should provide limit parameter in range between from 5 to 100")
+		assert.Equal(m, true, reflect.DeepEqual(book, *res))
 	})
 }
