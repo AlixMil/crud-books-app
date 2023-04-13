@@ -13,7 +13,7 @@ type Tokener interface {
 type DB interface {
 	CreateUser(email, passwordHash string) (string, error)
 	CreateBook(title, description, fileToken, emailOwner string) (string, error)
-	ChangeFieldOfBook(id, fieldName, fieldValue string) error
+	UpdateBook(bookId string, updater models.BookDataUpdater) error
 	UploadFileData(fileToken, downloadPage string) error
 	GetUserData(email string) (*models.UserData, error)
 	GetBook(bookToken string) (*models.BookData, error)
@@ -180,10 +180,10 @@ func (s Services) GetBooks(filter models.Filter, sorting models.Sort) (*[]models
 	return books, nil
 }
 
-func (s Services) UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error {
-	err := s.db.ChangeFieldOfBook(tokenBook, fieldName, fieldValue)
+func (s Services) UpdateBook(bookId string, updater models.BookDataUpdater) error {
+	err := s.db.UpdateBook(bookId, updater)
 	if err != nil {
-		return fmt.Errorf("updating of fields book was failed, error: %w", err)
+		return fmt.Errorf("updating failed, error: %w", err)
 	}
 	return nil
 }
