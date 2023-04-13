@@ -337,3 +337,97 @@ func TestGetBooksOfUser(t *testing.T) {
 	assert.Equal(t, true, reflect.DeepEqual(booksResponse, *res))
 
 }
+
+func Test_SignUp(t *testing.T) {
+	usInp := models.UserDataInput{
+		Email:    userEmail,
+		Password: "153513",
+	}
+	mocks := getMocks(t)
+	jwtTok := "ksaljlsajl4252"
+
+	rec := httptest.NewRecorder()
+	body, _ := json.Marshal(usInp)
+	buf := bytes.NewBuffer(body)
+	req := httptest.NewRequest(http.MethodPost, "/register", buf)
+	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	c := echo.New().NewContext(req, rec)
+
+	h := New(mocks.serviceLayer)
+	mocks.serviceLayer.EXPECT().SignUp(usInp).Return(jwtTok, nil)
+
+	err := h.SignUp(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	assert.Equal(t, fmt.Sprintf("Thanks for registration!\nYour auth token: %s", fmt.Sprintf("bearer %s", jwtTok)), rec.Body.String())
+}
+
+func Test_SignIn(t *testing.T) {
+	mocks := getMocks(t)
+	usInp := models.UserDataInput{
+		Email:    userEmail,
+		Password: "153513",
+	}
+	jwtTok := "ksaljlsajl4252"
+
+	rec := httptest.NewRecorder()
+	body, _ := json.Marshal(usInp)
+	buf := bytes.NewBuffer(body)
+	req := httptest.NewRequest(http.MethodPost, "/login", buf)
+	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	c := echo.New().NewContext(req, rec)
+
+	mocks.serviceLayer.EXPECT().SignIn(usInp).Return(jwtTok, nil)
+
+	h := New(mocks.serviceLayer)
+
+	err := h.SignIn(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	authHead := rec.Header().Get("Authorization")
+	assert.Equal(t, fmt.Sprintf("Bearer %s", jwtTok), authHead)
+}
+
+func Test_DeleteBook(t *testing.T) {
+	mocks := getMocks(t)
+	bookId := "123"
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/books/%s", bookId), &bytes.Buffer{})
+	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	c := echo.New().NewContext(req, rec)
+
+	mocks.serviceLayer.EXPECT().DeleteBook(bookId).Return(nil)
+
+	h := New(mocks.serviceLayer)
+	err := h.DeleteBook(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func Test_UpdateBook(t *testing.T) {
+	mocks := getMocks(t)
+	bookId := "123"
+	updater := models.BookDataUpdater{
+		FileToken:   "filetoken",
+		Title:       "Title",
+		Description: "description",
+	}
+
+	body, _ := json.Marshal(updater)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/books/%s", bookId), bytes.NewBuffer(body))
+	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	c := echo.New().NewContext(req, rec)
+
+	mocks.serviceLayer.EXPECT().UpdateBook(bookId, updater).Return(nil)
+
+	h := New(mocks.serviceLayer)
+	err := h.UpdateBook(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	assert.Equal(t, "Book data successfully updated!", rec.Body.String())
+}
