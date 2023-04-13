@@ -26,7 +26,7 @@ type Service interface {
 	UploadFile(file []byte) (string, error)
 	GetBook(bookToken string) (*models.GetBookResponse, error)
 	GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
-	UpdateBook(bookField, tokenBook, fieldName, fieldValue string) error
+	UpdateBook(bookId string, updater models.BookDataUpdater) error
 	DeleteBook(tokenBook string) error
 	GetUserByInsertedId(userId string) (*models.UserData, error)
 }
@@ -202,13 +202,27 @@ func (e *EchoHandlers) SignIn(c echo.Context) error {
 }
 
 func (e *EchoHandlers) UpdateBook(c echo.Context) error {
+	path := c.Request().URL.Path
+	bookId := strings.Replace(path, "/books/", "", 1)
+	var updater models.BookDataUpdater
+	c.Bind(&updater)
+	err := e.Services.UpdateBook(bookId, updater)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
 
-	return c.JSON(http.StatusOK, "sda")
+	return c.String(http.StatusOK, "Book data successfully updated!")
 }
 
 func (e *EchoHandlers) DeleteBook(c echo.Context) error {
+	path := c.Request().URL.Path
+	bookId := strings.Replace(path, "/books/", "", 1)
+	err := e.Services.DeleteBook(bookId)
+	if err != nil {
+		return c.String(http.StatusNoContent, "Books with provided ID not founded")
+	}
 
-	return c.JSON(http.StatusOK, "sda")
+	return c.JSON(http.StatusOK, "")
 }
 
 func (e *EchoHandlers) TestAuth(c echo.Context) error {
@@ -217,8 +231,8 @@ func (e *EchoHandlers) TestAuth(c echo.Context) error {
 	return c.String(http.StatusOK, fmt.Sprintf("your userId: %s", claims.UserId))
 }
 
-func New(serviceLayer Service) (*EchoHandlers, error) {
+func New(serviceLayer Service) *EchoHandlers {
 	return &EchoHandlers{
 		Services: serviceLayer,
-	}, nil
+	}
 }
