@@ -55,7 +55,6 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 	}
 	fmt.Println("TEST")
 
-	// doc := models.UserData{Email: email, PasswordHash: passwordHash, BooksIds: []string{}}
 	doc := bson.M{"email": email, "passwordHash": passwordHash, "booksIds": []bson.M{}}
 
 	cur, err := m.usersCollection.InsertOne(ctx, doc)
@@ -78,7 +77,7 @@ func (m *MongoDB) CreateBook(title, description, fileToken, emailOwner string) (
 		Title:       title,
 		Description: description,
 		FileToken:   fileToken,
-		Owner:       emailOwner, // email of owner
+		OwnerEmail:  emailOwner,
 		Url:         bookData.DownloadPage,
 	}
 
@@ -172,12 +171,17 @@ func (m *MongoDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetList
 	return books, nil
 }
 
-func (m *MongoDB) ChangeFieldOfBook(id, fieldName, fieldValue string) error {
+func (m *MongoDB) UpdateBook(bookId string, updater models.BookDataUpdater) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout*time.Second)
 	defer cancel()
 
-	filter := bson.M{"_id": id}
-	update := bson.M{"$set": bson.M{fieldName: fieldValue}}
+	filter := bson.M{"_id": bookId}
+	update := bson.M{
+		"$set": bson.M{
+			"title":       updater.Title,
+			"description": updater.Description,
+			"fileToken":   updater.FileToken,
+		}}
 
 	m.booksCollection.FindOneAndUpdate(ctx, filter, update)
 
