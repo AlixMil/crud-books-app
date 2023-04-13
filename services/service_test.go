@@ -191,8 +191,8 @@ func Test_GetBook(t *testing.T) {
 		Url:         "aksldkasl",
 		OwnerEmail:  "kfaljsdlj@gmail.com",
 	}
-	want := &GetBookResponse{
-		FileUrl:     bookData.Url,
+	want := &models.GetBookResponse{
+		FileURL:     bookData.Url,
 		Title:       bookData.Title,
 		Description: bookData.Description,
 	}
