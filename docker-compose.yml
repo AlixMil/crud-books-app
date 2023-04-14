@@ -2,19 +2,22 @@ version: '3.8'
 
 services:
   app:
-    image: 6576c36a34bb
+    container_name: crudbooks
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 8000:8000
+      - 4001:4001
     depends_on:
       - mongodb
     volumes:
       - ./bin/:/root/
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=mongodb
+      - DB_PORT=27017
 
   mongodb:
     image: mongo:latest
-    container_name: 58042414fbaa
-    ports:
-      - 27018:27017
+    container_name: mongoDB
