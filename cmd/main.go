@@ -25,7 +25,7 @@ func main() {
 	}
 	err = db.Ping()
 	if err != nil {
-		log.Fatalf("database ping execute error")
+		log.Fatalf("database ping execute error, %s", err.Error())
 	}
 
 	storage := gofile.New(cfg.GoFileServiceApiKey, cfg.GoFileFolderToken)
