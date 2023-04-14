@@ -165,17 +165,17 @@ func Test_CreateBook(t *testing.T) {
 func Test_UploadFile(t *testing.T) {
 	mocks := getMocks(t)
 	file := []byte("dkalsjdkjasdkas")
-	fileRet := models.UploadFileReturn{
+	fileRet := models.FileData{
 		DownloadPage: "http://download.com",
-		FileToken:    "jfkajsdkj413513",
+		Token:        "jfkajsdkj413513",
 	}
 	mocks.storager.EXPECT().UploadFile(file, false).Return(&fileRet, nil)
-	mocks.db.EXPECT().UploadFileData(fileRet.FileToken, fileRet.DownloadPage).Return(nil)
+	mocks.db.EXPECT().UploadFileData(&fileRet).Return(nil)
 
 	s := New(mocks.db, nil, mocks.storager, nil)
 	res, err := s.UploadFile(file)
 	require.NoError(t, err)
-	assert.Equal(t, fileRet.FileToken, res)
+	assert.Equal(t, fileRet.Token, res)
 }
 
 func Test_GetBook(t *testing.T) {
