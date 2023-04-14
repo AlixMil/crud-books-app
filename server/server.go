@@ -39,7 +39,7 @@ func (s Server) UseRouters(handlers Handlers) {
 	s.server.Add(http.MethodPost, "/files", handlers.UploadFile)
 	s.server.Add(http.MethodPost, "/books", handlers.CreateBook)
 	s.server.Add(http.MethodPost, "/books/:id", handlers.GetBook)
-	s.server.Add(http.MethodPost, "/books", handlers.GetBooksOfUser)
+	s.server.Add(http.MethodGet, "/books", handlers.GetBooksOfUser)
 	s.server.Add(http.MethodPatch, "/books/:id", handlers.UpdateBook)
 	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
 
