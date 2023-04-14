@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 const (
@@ -53,7 +55,6 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 	if userCur.Err() != mongo.ErrNoDocuments {
 		return "", fmt.Errorf("user with email %v already created", email)
 	}
-	fmt.Println("TEST")
 
 	doc := bson.M{"email": email, "passwordHash": passwordHash, "booksIds": []bson.M{}}
 
@@ -61,9 +62,12 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed collection insert in add user func, error: %w", err)
 	}
-	objId := fmt.Sprintf("%v", cur.InsertedID)
+	id, ok := cur.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return "", fmt.Errorf("converting insertedid of user in db failed, err: %w", err)
+	}
 
-	return objId, nil
+	return id.String(), nil
 }
 
 func (m *MongoDB) CreateBook(title, description, fileToken, emailOwner string) (string, error) {
@@ -264,11 +268,11 @@ func (m *MongoDB) Connect(cfg config.Config) error {
 		Username:      cfg.DatabaseLogin,
 		Password:      cfg.DatabasePwd,
 	}
-	opts := options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s/", cfg.DatabaseHost, cfg.DatabasePort)).SetAuth(credential)
-
+	opts := options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s/", cfg.DatabaseHost, cfg.DatabasePort))
+	opts.SetAuth(credential)
 	client, err := mongo.Connect(ctx, opts)
 	if err != nil {
-		return fmt.Errorf("connect to db failed, error: %w", err)
+		return fmt.Errorf("connecting to db failed, error: %w", err)
 	}
 
 	db := client.Database(cfg.DatabaseName)
@@ -280,14 +284,15 @@ func (m *MongoDB) Connect(cfg config.Config) error {
 }
 
 func (m MongoDB) Ping() error {
-	ctxPing, cancelPing := context.WithTimeout(context.Background(), time.Second*3)
+	ctxPing, cancelPing := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancelPing()
 
-	var result bson.M
-	err := m.db.RunCommand(ctxPing, bson.M{"ping": 1}).Decode(&result)
-	if err != mongo.ErrNoDocuments {
-		return fmt.Errorf("%s", result)
+	err := m.db.Client().Ping(ctxPing, readpref.Primary())
+
+	if err != nil {
+		return fmt.Errorf("ping error: %w", err)
 	}
+
 	return nil
 }
 
