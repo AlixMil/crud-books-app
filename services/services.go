@@ -14,7 +14,7 @@ type DB interface {
 	CreateUser(email, passwordHash string) (string, error)
 	CreateBook(title, description, fileToken, emailOwner string) (string, error)
 	UpdateBook(bookId string, updater models.BookDataUpdater) error
-	UploadFileData(fileToken, downloadPage string) error
+	UploadFileData(fileData *models.FileData) error
 	GetUserData(email string) (*models.UserData, error)
 	GetBook(bookToken string) (*models.BookData, error)
 	GetFileData(fileToken string) (*models.FileData, error)
@@ -25,7 +25,7 @@ type DB interface {
 }
 
 type Storager interface {
-	UploadFile(file []byte, isTest bool) (*models.UploadFileReturn, error)
+	UploadFile(file []byte, isTest bool) (*models.FileData, error)
 	DeleteFile(fileToken string) error
 }
 
@@ -137,15 +137,16 @@ func (s Services) CreateBook(title, description, fileToken, userEmail string) (s
 }
 
 func (s Services) UploadFile(file []byte) (string, error) {
-	res, err := s.storage.UploadFile(file, false)
+	fileData, err := s.storage.UploadFile(file, false)
 	if err != nil {
 		return "", fmt.Errorf("upload file to service failed, error: %w", err)
 	}
-	err = s.db.UploadFileData(res.FileToken, res.DownloadPage)
+
+	err = s.db.UploadFileData(fileData)
 	if err != nil {
 		return "", fmt.Errorf("recording to db of uploaded file failed, error: %w", err)
 	}
-	return res.FileToken, nil
+	return fileData.Token, nil
 }
 
 func (s Services) GetBook(bookToken string) (*models.GetBookResponse, error) {
