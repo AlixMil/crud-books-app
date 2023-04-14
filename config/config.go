@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -33,7 +34,7 @@ func New() (*Config, error) {
 		return nil, fmt.Errorf("failed convert to in of JWT_TOKEN_TTL, error: %w", err)
 	}
 
-	return &Config{
+	cfg := Config{
 		ServerHost:             os.Getenv("SERVER_HOST"),
 		ServerPort:             os.Getenv("SERVER_PORT"),
 		DdownloadServiceApiKey: os.Getenv("DDOWNLOAD_SERVICE_API_KEY"),
@@ -46,5 +47,44 @@ func New() (*Config, error) {
 		DatabasePwd:            os.Getenv("DB_PWD"),
 		JWTSecret:              os.Getenv("JWT_SECRET"),
 		JWTTokenTTL:            JWTTokenTTL,
-	}, nil
+	}
+
+	if cfg.ServerHost == "" {
+		return nil, errors.New("serverhost env is empty")
+	}
+	if cfg.ServerPort == "" {
+		return nil, errors.New("serverport env is empty")
+	}
+	if cfg.DdownloadServiceApiKey == "" {
+		return nil, errors.New("ddownloadServiceApiKey env is empty")
+	}
+	if cfg.GoFileServiceApiKey == "" {
+		return nil, errors.New("goFileServiceApiKey env is empty")
+	}
+	if cfg.GoFileFolderToken == "" {
+		return nil, errors.New("goFileFolderToken env is empty")
+	}
+	if cfg.DatabaseName == "" {
+		return nil, errors.New("databaseName env is empty")
+	}
+	if cfg.DatabasePort == "" {
+		return nil, errors.New("databasePort env is empty")
+	}
+	if cfg.DatabaseHost == "" {
+		return nil, errors.New("databaseHost env is empty")
+	}
+	if cfg.DatabaseLogin == "" {
+		return nil, errors.New("databaseLogin env is empty")
+	}
+	if cfg.JWTSecret == "" {
+		return nil, errors.New("databasePwd env is empty")
+	}
+	if cfg.DatabaseHost == "" {
+		return nil, errors.New("jwtSecret env is empty")
+	}
+	if cfg.JWTTokenTTL == 0 {
+		return nil, errors.New("jwtTokenTTL env is empty or null")
+	}
+
+	return &cfg, nil
 }
