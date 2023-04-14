@@ -57,11 +57,6 @@ type ValidateDataInGetLists struct {
 
 // STORAGE RESPONSES
 
-type UploadFileReturn struct {
-	DownloadPage string
-	FileToken    string
-}
-
 type UploadFileResponse struct {
 	Status string `json:"status"`
 	Data   struct {
