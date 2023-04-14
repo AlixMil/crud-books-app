@@ -172,7 +172,6 @@ func Test_CreateBook(t *testing.T) {
 		Id:           defaultUserId,
 		Email:        "jfkaljsdj@gmail.com",
 		PasswordHash: "kfaksjdkasd2415",
-		BooksIds:     []string{},
 	}
 	buf := bytes.NewBuffer(nil)
 	b, _ := json.Marshal(&reqBody)
@@ -292,7 +291,6 @@ func TestGetBooksOfUser(t *testing.T) {
 		Id:           defaultUserId,
 		Email:        "keer@gmail.com",
 		PasswordHash: "581937ikajsdkajsf",
-		BooksIds:     []string{},
 	}
 	mocks := getMocks(t)
 	wantFilt := models.Filter{
