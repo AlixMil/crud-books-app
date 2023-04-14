@@ -197,12 +197,15 @@ func (m *MongoDB) UpdateBook(bookId string, updater models.BookDataUpdater) erro
 	return nil
 }
 
-func (m *MongoDB) UploadFileData(fileToken, downloadPage string) error {
-	doc := bson.M{"token": fileToken, "downloadPage": downloadPage}
+func (m *MongoDB) UploadFileData(fileData *models.FileData) error {
+	doc := bson.M{
+		"token":        fileData.Token,
+		"downloadPage": fileData.DownloadPage,
+	}
 
 	_, err := m.filesCollection.InsertOne(context.TODO(), doc)
 	if err != nil {
-		return fmt.Errorf("insertone in uploadfiledata failed, error: %w", err)
+		return fmt.Errorf("uploadFileData failed, error: %w", err)
 	}
 	return nil
 }
