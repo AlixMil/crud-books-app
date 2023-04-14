@@ -1,10 +1,9 @@
 package models
 
 type UserData struct {
-	Id           string   `bson:"_id,omitempty"`
-	Email        string   `bson:"email"`
-	PasswordHash string   `bson:"passwordHash"`
-	BooksIds     []string `bson:"booksIds"`
+	Id           string `bson:"_id,omitempty"`
+	Email        string `bson:"email"`
+	PasswordHash string `bson:"passwordHash"`
 }
 
 type BookData struct {
