@@ -191,7 +191,7 @@ func (e *EchoHandlers) SignIn(c echo.Context) error {
 	}
 	token, err := e.Services.SignIn(signInData)
 	if err != nil {
-		return fmt.Errorf("failed in signin service, error: %w", err)
+		return c.String(http.StatusUnauthorized, fmt.Errorf("user with chosen email not found, err: %s", err.Error()).Error())
 	}
 
 	c.Response().Header().Add("Authorization", fmt.Sprintf("Bearer %s", token))
