@@ -92,7 +92,6 @@ func Test_SignIn(t *testing.T) {
 		Id:           "12",
 		Email:        userInp.Email,
 		PasswordHash: "kasldjlajsd@2413",
-		BooksIds:     []string{},
 	}
 
 	mocks.db.EXPECT().GetUserData(userInp.Email).Return(&userData, nil)
@@ -136,7 +135,6 @@ func Test_GetUserByInsertedId(t *testing.T) {
 		Id:           userId,
 		Email:        "jojekalsjd@gmail.com",
 		PasswordHash: "fjakjsdk2412",
-		BooksIds:     []string{},
 	}
 
 	mocks.db.EXPECT().GetUserDataByInsertedId(userId).Return(&userData, nil)
