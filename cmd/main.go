@@ -8,7 +8,7 @@ import (
 	jwt_package "crud-books/pkg/jwt"
 	"crud-books/server"
 	"crud-books/services"
-	"crud-books/storageService/gofile"
+	"crud-books/storageService"
 	"log"
 )
 
@@ -28,7 +28,7 @@ func main() {
 		log.Fatalf("database ping execute error, %s", err.Error())
 	}
 
-	storage := gofile.New(cfg.GoFileServiceApiKey, cfg.GoFileFolderToken)
+	storage := storageService.New(*cfg)
 
 	tokener := jwt_package.New(*cfg)
 
