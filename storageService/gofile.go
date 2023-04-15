@@ -1,9 +1,9 @@
-package gofile
+package storageService
 
 import (
 	"bytes"
+	"crud-books/config"
 	"crud-books/models"
-	storageService_helpers "crud-books/storageService"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,10 +21,37 @@ const (
 )
 
 var (
-	urlGetServer    = "https://api.gofile.io/getServer"
-	urlDeleteFile   = "https://api.gofile.io/deleteContent"
-	urlUploadServer = ""
+	urlGetServer  = "https://api.gofile.io/getServer"
+	urlDeleteFile = "https://api.gofile.io/deleteContent"
 )
+
+type DataFromUploadFileResponse struct {
+	DownloadPage string `json:"downloadPage"`
+	Code         string `json:"code"`
+	ParentFolder string `json:"parentFolder"`
+	FileID       string `json:"fileId"`
+	FileName     string `json:"fileName"`
+	Md5          string `json:"md5"`
+}
+
+type UploadFileResponse struct {
+	Status string                     `json:"status"`
+	Data   DataFromUploadFileResponse `json:"data"`
+}
+
+type DataFromServerToUploadResponse struct {
+	Server string `json:"server"`
+}
+
+type ServerToUploadResponse struct {
+	Status string                         `json:"status"`
+	Data   DataFromServerToUploadResponse `json:"data"`
+}
+
+type DeleteFileScheme struct {
+	ContentsId string `json:"contentsId"`
+	Token      string `json:"token"`
+}
 
 type Storage struct {
 	StorageService string
@@ -33,13 +60,34 @@ type Storage struct {
 	folderId       string
 }
 
-type queryParam = storageService_helpers.QueryParams
+type QueryParams struct {
+	QueryParamName string
+	QueryParamVal  string
+}
 
-func (s Storage) getServerToUpload() (string, error) {
-	req, err := storageService_helpers.DoRequest(
+func DoRequest(method, path string, queryParams []QueryParams, body *bytes.Buffer) (*http.Request, error) {
+	if body == nil {
+		body = nil
+	}
+	req, err := http.NewRequest(method, path, body)
+	if err != nil {
+		return &http.Request{}, err
+	}
+
+	for _, v := range queryParams {
+		q := req.URL.Query()
+		q.Add(v.QueryParamName, v.QueryParamVal)
+		req.URL.RawQuery = q.Encode()
+	}
+
+	return req, nil
+}
+
+func (s Storage) GetServerToUpload() (string, error) {
+	req, err := DoRequest(
 		http.MethodGet,
 		urlGetServer,
-		[]queryParam{},
+		[]QueryParams{},
 		&bytes.Buffer{},
 	)
 	if err != nil {
@@ -56,7 +104,7 @@ func (s Storage) getServerToUpload() (string, error) {
 		return "", fmt.Errorf("error in reading body of req in getServerToUpload: %w", err)
 	}
 
-	jBody := models.UploadServerSummary{}
+	jBody := ServerToUploadResponse{}
 	err = json.Unmarshal(jsonRes, &jBody)
 	if err != nil {
 		return "", fmt.Errorf("error in unmarshalling of req body in getServerToUpload: %w", err)
@@ -93,30 +141,22 @@ func getBodyWriter(file []byte, apiKey, folderId string) (*bytes.Buffer, string,
 	return body, writer.FormDataContentType(), nil
 }
 
-func (s Storage) UploadFile(file []byte, isTest bool) (*models.UploadFileReturn, error) {
-	serverToUpload, err := s.getServerToUpload()
-	if err != nil {
-		return nil, fmt.Errorf("error in serverToUpload getting of UploadFile: %w", err)
-	}
-
+func (s Storage) UploadFile(servForUpload string, file []byte) (*models.FileData, error) {
 	body, contentType, err := getBodyWriter(file, s.apiKey, s.folderId)
 	if err != nil {
 		return nil, fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
 	}
 
-	if !isTest {
-		urlUploadServer = fmt.Sprintf("https://%v.gofile.io/UploadFile", serverToUpload)
-	}
-
-	req, err := storageService_helpers.DoRequest(
+	req, err := DoRequest(
 		http.MethodPost,
-		urlUploadServer,
-		[]queryParam{},
+		servForUpload,
+		[]QueryParams{},
 		body,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error in req of UploadFile: %w", err)
 	}
+
 	req.Header.Add("Content-Type", contentType)
 
 	res, err := s.client.Do(req)
@@ -129,21 +169,20 @@ func (s Storage) UploadFile(file []byte, isTest bool) (*models.UploadFileReturn,
 		return nil, err
 	}
 
-	var uploadResp models.UploadFileResponse
+	var uploadResp UploadFileResponse
 	err = json.Unmarshal(jsonResponse, &uploadResp)
 	if err != nil {
 		return nil, fmt.Errorf("error in unmarshal of uploadfile: %w", err)
 	}
 
-	return &models.UploadFileReturn{DownloadPage: uploadResp.Data.DownloadPage, FileToken: uploadResp.Data.FileID}, nil
+	return &models.FileData{
+		Token:        uploadResp.Data.FileID,
+		DownloadPage: uploadResp.Data.DownloadPage,
+	}, nil
 }
 
 func (s Storage) DeleteFile(fileToken string) error {
-	type jsonScheme struct {
-		ContentsId string `json:"contentsId"`
-		Token      string `json:"token"`
-	}
-	j := jsonScheme{
+	j := DeleteFileScheme{
 		ContentsId: fileToken,
 		Token:      s.apiKey,
 	}
@@ -151,29 +190,33 @@ func (s Storage) DeleteFile(fileToken string) error {
 	if err != nil {
 		return fmt.Errorf("error in marshal of delete file: %w", err)
 	}
-	req, err := storageService_helpers.DoRequest(
+
+	req, err := DoRequest(
 		http.MethodDelete,
 		urlDeleteFile,
-		[]queryParam{},
+		[]QueryParams{},
 		bytes.NewBuffer(jsonBody),
 	)
 	if err != nil {
 		return fmt.Errorf("error in request of delete file: %w", err)
 	}
+
 	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
 	_, err = s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error when sendind response of delete file: %w", err)
+		return fmt.Errorf("error when sending response of delete file: %w", err)
 	}
+
 	return nil
 }
 
-func New(apiKey, folderId string) *Storage {
+func New(cfg config.Config) *Storage {
 	s := Storage{
 		StorageService: "gofile",
-		apiKey:         apiKey,
+		apiKey:         cfg.GoFileServiceApiKey,
 		client:         http.DefaultClient,
-		folderId:       folderId,
+		folderId:       cfg.GoFileFolderToken,
 	}
 	return &s
 }
