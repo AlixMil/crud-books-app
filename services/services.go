@@ -25,7 +25,8 @@ type DB interface {
 }
 
 type Storager interface {
-	UploadFile(file []byte, isTest bool) (*models.FileData, error)
+	GetServerToUpload() (string, error)
+	UploadFile(servToUpload string, file []byte) (*models.FileData, error)
 	DeleteFile(fileToken string) error
 }
 
@@ -137,7 +138,12 @@ func (s Services) CreateBook(title, description, fileToken, userEmail string) (s
 }
 
 func (s Services) UploadFile(file []byte) (string, error) {
-	fileData, err := s.storage.UploadFile(file, false)
+	servForUpload, err := s.storage.GetServerToUpload()
+	if err != nil {
+		return "", fmt.Errorf("getting cell server for upload file failed, error: %w", err)
+	}
+
+	fileData, err := s.storage.UploadFile(servForUpload, file)
 	if err != nil {
 		return "", fmt.Errorf("upload file to service failed, error: %w", err)
 	}

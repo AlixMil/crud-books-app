@@ -164,12 +164,14 @@ func Test_CreateBook(t *testing.T) {
 
 func Test_UploadFile(t *testing.T) {
 	mocks := getMocks(t)
+	defServToUpload := "google.com"
 	file := []byte("dkalsjdkjasdkas")
 	fileRet := models.FileData{
 		DownloadPage: "http://download.com",
 		Token:        "jfkajsdkj413513",
 	}
-	mocks.storager.EXPECT().UploadFile(file, false).Return(&fileRet, nil)
+	mocks.storager.EXPECT().GetServerToUpload().Return(defServToUpload, nil)
+	mocks.storager.EXPECT().UploadFile(defServToUpload, file).Return(&fileRet, nil)
 	mocks.db.EXPECT().UploadFileData(&fileRet).Return(nil)
 
 	s := New(mocks.db, nil, mocks.storager, nil)
