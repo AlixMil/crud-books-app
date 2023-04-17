@@ -7,8 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"path/filepath"
+	"reflect"
 
 	"github.com/labstack/echo/v4"
 )
@@ -110,15 +114,24 @@ func (s Storage) GetServerToUpload() (string, error) {
 		return "", fmt.Errorf("error in unmarshalling of req body in getServerToUpload: %w", err)
 	}
 
-	return jBody.Data.Server, nil
+	serverAddress := fmt.Sprintf("https://%s.gofile.io/uploadFile", jBody.Data.Server)
+
+	return serverAddress, nil
 }
 
-func getBodyWriter(file []byte, apiKey, folderId string) (*bytes.Buffer, string, error) {
+func createPdfFormFile(w *multipart.Writer, filename string) (io.Writer, error) {
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
+	h.Set("Content-Type", "application/pdf")
+	return w.CreatePart(h)
+}
+
+func getBodyWriter(fileName string, file []byte, apiKey, folderId string) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	defer writer.Close()
 
-	fileWriter, err := writer.CreateFormFile(paramFileName, "file")
+	fileWriter, err := createPdfFormFile(writer, fileName)
 	if err != nil {
 		return body, "", err
 	}
@@ -141,8 +154,8 @@ func getBodyWriter(file []byte, apiKey, folderId string) (*bytes.Buffer, string,
 	return body, writer.FormDataContentType(), nil
 }
 
-func (s Storage) UploadFile(servForUpload string, file []byte) (*models.FileData, error) {
-	body, contentType, err := getBodyWriter(file, s.apiKey, s.folderId)
+func (s Storage) UploadFile(servForUpload string, file []byte, fileHeader *multipart.FileHeader) (*models.FileData, error) {
+	body, contentType, err := getBodyWriter(filepath.Base(fileHeader.Filename), file, s.apiKey, s.folderId)
 	if err != nil {
 		return nil, fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
 	}
@@ -161,18 +174,23 @@ func (s Storage) UploadFile(servForUpload string, file []byte) (*models.FileData
 
 	res, err := s.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error when uploadfile func sending request: %w", err)
+		return nil, fmt.Errorf("uploadFile func sending request failed: %w", err)
 	}
 
 	jsonResponse, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("upload file response : %s", jsonResponse)
 
 	var uploadResp UploadFileResponse
 	err = json.Unmarshal(jsonResponse, &uploadResp)
 	if err != nil {
 		return nil, fmt.Errorf("error in unmarshal of uploadfile: %w", err)
+	}
+
+	if reflect.ValueOf(uploadResp.Data).IsZero() {
+		return nil, fmt.Errorf("upload file error, service storage unexpected response")
 	}
 
 	return &models.FileData{
