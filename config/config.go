@@ -10,18 +10,17 @@ import (
 )
 
 type Config struct {
-	ServerHost             string
-	ServerPort             string
-	DdownloadServiceApiKey string
-	GoFileServiceApiKey    string
-	GoFileFolderToken      string
-	DatabaseName           string
-	DatabasePort           string
-	DatabaseHost           string
-	DatabaseLogin          string
-	DatabasePwd            string
-	JWTSecret              string
-	JWTTokenTTL            int
+	ServerHost          string
+	ServerPort          string
+	GoFileServiceApiKey string
+	GoFileFolderToken   string
+	DatabaseName        string
+	DatabasePort        string
+	DatabaseHost        string
+	DatabaseLogin       string
+	DatabasePwd         string
+	JWTSecret           string
+	JWTTokenTTL         int
 }
 
 func New() (*Config, error) {
@@ -35,18 +34,17 @@ func New() (*Config, error) {
 	}
 
 	cfg := Config{
-		ServerHost:             os.Getenv("SERVER_HOST"),
-		ServerPort:             os.Getenv("SERVER_PORT"),
-		DdownloadServiceApiKey: os.Getenv("DDOWNLOAD_SERVICE_API_KEY"),
-		GoFileServiceApiKey:    os.Getenv("GOFILE_SERVICE_API_KEY"),
-		GoFileFolderToken:      os.Getenv("GOFILE_FOLDER_TOKEN"),
-		DatabaseName:           os.Getenv("DB_NAME"),
-		DatabasePort:           os.Getenv("DB_PORT"),
-		DatabaseHost:           os.Getenv("DB_HOST"),
-		DatabaseLogin:          os.Getenv("DB_LOGIN"),
-		DatabasePwd:            os.Getenv("DB_PWD"),
-		JWTSecret:              os.Getenv("JWT_SECRET"),
-		JWTTokenTTL:            JWTTokenTTL,
+		ServerHost:          os.Getenv("SERVER_HOST"),
+		ServerPort:          os.Getenv("SERVER_PORT"),
+		GoFileServiceApiKey: os.Getenv("GOFILE_SERVICE_API_KEY"),
+		GoFileFolderToken:   os.Getenv("GOFILE_FOLDER_TOKEN"),
+		DatabaseName:        os.Getenv("DB_NAME"),
+		DatabasePort:        os.Getenv("DB_PORT"),
+		DatabaseHost:        os.Getenv("DB_HOST"),
+		DatabaseLogin:       os.Getenv("DB_LOGIN"),
+		DatabasePwd:         os.Getenv("DB_PWD"),
+		JWTSecret:           os.Getenv("JWT_SECRET"),
+		JWTTokenTTL:         JWTTokenTTL,
 	}
 
 	if cfg.ServerHost == "" {
@@ -54,9 +52,6 @@ func New() (*Config, error) {
 	}
 	if cfg.ServerPort == "" {
 		return nil, errors.New("serverport env is empty")
-	}
-	if cfg.DdownloadServiceApiKey == "" {
-		return nil, errors.New("ddownloadServiceApiKey env is empty")
 	}
 	if cfg.GoFileServiceApiKey == "" {
 		return nil, errors.New("goFileServiceApiKey env is empty")
