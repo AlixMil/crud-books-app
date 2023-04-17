@@ -5,6 +5,7 @@ import (
 	"crud-books/config"
 	"crud-books/models"
 	"fmt"
+	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,11 +32,15 @@ type MongoDB struct {
 func (m *MongoDB) GetBook(bookToken string) (*models.BookData, error) {
 	filter := bson.M{"fileToken": bookToken}
 	result := m.booksCollection.FindOne(context.TODO(), filter)
+	if result.Err() == mongo.ErrNoDocuments {
+		return nil, mongo.ErrNoDocuments
+	}
 	var bookData models.BookData
 	err := result.Decode(&bookData)
 	if err != nil {
 		return nil, fmt.Errorf("decode book data in get book func of db failed, error: %w", err)
 	}
+
 	return &bookData, nil
 }
 
@@ -50,6 +55,7 @@ func (m *MongoDB) getUserData(filter bson.M) (*models.UserData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("userdata decoding failed, error: %w", err)
 	}
+
 	return userData, nil
 }
 
@@ -73,20 +79,26 @@ func (m *MongoDB) CreateUser(email, passwordHash string) (string, error) {
 		return "", fmt.Errorf("converting insertedid of user in db failed, err: %w", err)
 	}
 
-	return id.String(), nil
+	return id.Hex(), nil
 }
 
 func (m *MongoDB) CreateBook(title, description, fileToken, emailOwner string) (string, error) {
-	bookData, err := m.GetFileData(fileToken)
+	_, err := m.GetBook(fileToken)
+	if err != mongo.ErrNoDocuments {
+		return "", fmt.Errorf("book from file token already exist")
+	}
+
+	fileData, err := m.GetFileData(fileToken)
 	if err != nil {
 		return "", fmt.Errorf("get file data failed, error: %w", err)
 	}
+
 	dBook := models.BookData{
 		Title:       title,
 		Description: description,
 		FileToken:   fileToken,
 		OwnerEmail:  emailOwner,
-		Url:         bookData.DownloadPage,
+		Url:         fileData.DownloadPage,
 	}
 
 	insertResult, err := m.booksCollection.InsertOne(context.TODO(), dBook)
@@ -110,6 +122,7 @@ func prepareCollectionToSearch(collection *mongo.Collection) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("preparing collection to search failed, error: %w", err)
 	}
+
 	return indexName, nil
 }
 
@@ -117,10 +130,12 @@ func getFindOptions(params models.ValidateDataInGetLists) *options.FindOptions {
 	fOpt := options.Find()
 	fOpt.SetLimit(int64(params.Limit))
 	fOpt.SetSort(bson.M{params.SortField: params.Direction})
+	fOpt.SetSkip(int64(params.Offset))
+
 	return fOpt
 }
 
-func (m *MongoDB) GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error) {
+func (m *MongoDB) GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error) {
 	var filter bson.M
 
 	indexName, err := prepareCollectionToSearch(m.booksCollection)
@@ -148,21 +163,28 @@ func (m *MongoDB) GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetList
 	if err != nil {
 		return nil, fmt.Errorf("dropping index failed, error: %w", err)
 	}
-	return &res, nil
+
+	return res, nil
 }
 
-func (m *MongoDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error) {
+func (m *MongoDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error) {
 	userData, err := m.GetUserData(paramsOfBooks.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	bookFilter := bson.M{"owner": userData.Email, "$text": bson.M{"$search": paramsOfBooks.Search}}
+	var bookFilter bson.M
+
+	bookFilter = bson.M{"owner": userData.Email, "$text": bson.M{"$search": paramsOfBooks.Search}}
+
+	if paramsOfBooks.Search == "" {
+		bookFilter = bson.M{"owner": userData.Email}
+	}
 
 	opts := getFindOptions(*paramsOfBooks)
 	indexName, err := prepareCollectionToSearch(m.booksCollection)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("prepare collection to search error: %w", err)
 	}
 
 	booksCur, err := m.booksCollection.Find(context.TODO(), bookFilter, opts)
@@ -170,7 +192,8 @@ func (m *MongoDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetList
 		return nil, fmt.Errorf("book collection search failed, error: %w", err)
 	}
 
-	var books *[]models.BookData
+	var books []models.BookData
+
 	err = booksCur.All(context.TODO(), &books)
 	if err != nil {
 		return nil, fmt.Errorf("decoding cursor failed, error: %w", err)
@@ -180,11 +203,16 @@ func (m *MongoDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetList
 	if err != nil {
 		return nil, fmt.Errorf("dropping index failed, error: %w", err)
 	}
+
 	return books, nil
 }
 
-func (m *MongoDB) UpdateBook(bookId string, updater models.BookDataUpdater) error {
-	filter := bson.M{"_id": bookId}
+func (m *MongoDB) UpdateBook(bookFileToken string, updater models.BookDataUpdater) error {
+	_, err := m.GetFileData(updater.FileToken)
+	if err != nil {
+		return fmt.Errorf("filetoken should be only exist in system")
+	}
+	filter := bson.M{"fileToken": bookFileToken}
 	update := bson.M{
 		"$set": bson.M{
 			"title":       updater.Title,
@@ -192,7 +220,10 @@ func (m *MongoDB) UpdateBook(bookId string, updater models.BookDataUpdater) erro
 			"fileToken":   updater.FileToken,
 		}}
 
-	m.booksCollection.FindOneAndUpdate(context.TODO(), filter, update)
+	res := m.booksCollection.FindOneAndUpdate(context.TODO(), filter, update)
+	if res.Err() == mongo.ErrNoDocuments {
+		return fmt.Errorf("book doesn't exist")
+	}
 
 	return nil
 }
@@ -207,18 +238,22 @@ func (m *MongoDB) UploadFileData(fileData *models.FileData) error {
 	if err != nil {
 		return fmt.Errorf("uploadFileData failed, error: %w", err)
 	}
+
 	return nil
 }
 
 func (m *MongoDB) GetFileData(fileToken string) (*models.FileData, error) {
 	filter := bson.M{"token": fileToken}
 
-	res := m.filesCollection.FindOne(context.TODO(), filter)
 	var f models.FileData
-	err := res.Decode(&f)
-	if err != nil {
+	err := m.filesCollection.FindOne(context.TODO(), filter).Decode(&f)
+	if err == mongo.ErrNoDocuments {
+		return nil, mongo.ErrNoDocuments
+	}
+	if err != nil && err != mongo.ErrNoDocuments {
 		return nil, fmt.Errorf("decoding result of getfiledata failed, error: %w", err)
 	}
+
 	return &models.FileData{Id: f.Id, Token: f.Token, DownloadPage: f.DownloadPage}, nil
 }
 
@@ -230,11 +265,18 @@ func (m *MongoDB) GetUserData(email string) (*models.UserData, error) {
 		return nil, fmt.Errorf("getUserData error: %w", err)
 	}
 
+	log.Printf("userData: %s", userData)
+
 	return userData, nil
 }
 
 func (m *MongoDB) GetUserDataByInsertedId(userId string) (*models.UserData, error) {
-	filter := bson.M{"_id": userId}
+
+	objId, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		return nil, fmt.Errorf("retrievev obj id from hex failed, error: %w", err)
+	}
+	filter := bson.M{"_id": objId}
 	userData, err := m.getUserData(filter)
 	if err != nil {
 		return nil, fmt.Errorf("getUserData error: %w", err)
@@ -243,9 +285,13 @@ func (m *MongoDB) GetUserDataByInsertedId(userId string) (*models.UserData, erro
 	return userData, nil
 }
 
-func (m MongoDB) DeleteBook(tokenBook string) error {
-	filter := bson.M{"fileToken": tokenBook}
-	m.usersCollection.FindOneAndDelete(context.TODO(), filter)
+func (m MongoDB) DeleteBook(bookId string) error {
+	filter := bson.M{"fileToken": bookId}
+	res := m.booksCollection.FindOneAndDelete(context.TODO(), filter)
+	if res.Err() == mongo.ErrNoDocuments {
+		return fmt.Errorf("deleting file failed, file doesn't exist")
+	}
+
 	return nil
 }
 
@@ -268,6 +314,7 @@ func (m *MongoDB) Connect(cfg config.Config) error {
 	m.usersCollection = db.Collection(usersCollectionName)
 	m.filesCollection = db.Collection(filesCollectionName)
 	m.db = db
+
 	return nil
 }
 
