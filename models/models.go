@@ -27,9 +27,9 @@ type UserDataInput struct {
 }
 
 type FileData struct {
-	Id           string `bson:"_id,omitempty"`
-	Token        string `bson:"token"`
-	DownloadPage string `bson:"downloadPage"`
+	Id           string `bson:"_id,omitempty" json:"id"`
+	Token        string `bson:"token" json:"token"`
+	DownloadPage string `bson:"downloadPage" json:"downloadPage"`
 }
 
 type Filter struct {
