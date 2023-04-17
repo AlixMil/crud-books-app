@@ -3,11 +3,16 @@ package storageService
 import (
 	"crud-books/config"
 	"encoding/json"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
+	"os"
 	"testing"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +27,7 @@ var testDeleteFileData = DeleteFileScheme{
 	Token:      defaultConfig.GoFileFolderToken,
 }
 
-func givenTestServer(handler http.Handler) *httptest.Server {
+func getTestServer(handler http.Handler) *httptest.Server {
 	return httptest.NewServer(handler)
 }
 
@@ -45,7 +50,40 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 	return handlerHelper(t, testData)
 }
 
-func uploadFileServerHandler(t *testing.T) http.Handler {
+func Test_Service_GetServerToUpload(t *testing.T) {
+	s := New(defaultConfig)
+
+	const urlToUpload = "store3"
+
+	mockGetToUploadServ := getTestServer(getServerToUploadHandler(t, urlToUpload))
+
+	urlGetServer = mockGetToUploadServ.URL
+	serv, err := s.GetServerToUpload()
+	require.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("https://%s.gofile.io/uploadFile", urlToUpload), serv)
+}
+
+func uploadFileServerHandler(t *testing.T, fileBytesToCompare []byte, testDataStruct UploadFileResponse) http.Handler {
+
+	testDataJson, _ := json.Marshal(testDataStruct)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, fileHeader, _ := r.FormFile("file")
+		assert.Equal(t, "file.pdf", fileHeader.Filename)
+
+		file, _ := fileHeader.Open()
+		fileBody, _ := io.ReadAll(file)
+		assert.Equal(t, fileBytesToCompare, fileBody)
+
+		_, err := w.Write(testDataJson)
+		w.Header().Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		require.NoError(t, err)
+	})
+
+	// handlerHelper(t, testData)
+}
+
+func Test_Service_UploadFile(t *testing.T) {
 	testData := UploadFileResponse{
 		Status: "ok",
 		Data: DataFromUploadFileResponse{
@@ -58,7 +96,28 @@ func uploadFileServerHandler(t *testing.T) http.Handler {
 		},
 	}
 
-	return handlerHelper(t, testData)
+	s := New(defaultConfig)
+	file, err := os.Open("./testsData/file.pdf")
+
+	fh := multipart.FileHeader{
+		Filename: file.Name(),
+		Header:   make(textproto.MIMEHeader),
+		Size:     int64(12),
+	}
+
+	require.NoError(t, err)
+	fileBytes, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	fileId := "4991e6d7-5217-46ae-af3d-c9174adae924"
+
+	mockUploadServer := getTestServer(uploadFileServerHandler(t, fileBytes, testData))
+
+	got, err := s.UploadFile(mockUploadServer.URL, fileBytes, &fh)
+
+	require.NoError(t, err)
+	assert.Equal(t, "https://gofile.io/d/Z19n9a", got.DownloadPage)
+	assert.Equal(t, fileId, got.Token)
 }
 
 func deleteFileHandler(t *testing.T) http.Handler {
@@ -74,35 +133,10 @@ func deleteFileHandler(t *testing.T) http.Handler {
 	// handlerHelper(t, testData)
 }
 
-func Test_Service_GetServerToUpload(t *testing.T) {
-	s := New(defaultConfig)
-
-	const urlToUpload = "https://google.com"
-
-	mockGetToUploadServ := givenTestServer(getServerToUploadHandler(t, urlToUpload))
-
-	urlGetServer = mockGetToUploadServ.URL
-	serv, err := s.GetServerToUpload()
-	require.NoError(t, err)
-	assert.Equal(t, urlToUpload, serv)
-}
-
-func Test_Service_UploadFile(t *testing.T) {
-	s := New(defaultConfig)
-	file := []byte("Hello, World!")
-
-	mockUploadServer := givenTestServer(uploadFileServerHandler(t))
-
-	got, err := s.UploadFile(mockUploadServer.URL, file)
-
-	require.NoError(t, err)
-	assert.Equal(t, "https://gofile.io/d/Z19n9a", got.DownloadPage)
-}
-
 func Test_DeleteFile(t *testing.T) {
 	s := New(defaultConfig)
 
-	mockServ := givenTestServer(deleteFileHandler(t))
+	mockServ := getTestServer(deleteFileHandler(t))
 
 	urlDeleteFile = mockServ.URL
 	err := s.DeleteFile(testDeleteFileData.ContentsId)
