@@ -23,36 +23,36 @@ type Handlers interface {
 	SignIn(c echo.Context) error
 	CreateBook(c echo.Context) error
 	GetBook(c echo.Context) error
-	GetBooksPublic(c echo.Context) error
-	GetBooksOfUser(c echo.Context) error
+	GetBooks(c echo.Context) error
 	UpdateBook(c echo.Context) error
 	DeleteBook(c echo.Context) error
-	TestAuth(c echo.Context) error
 }
 
 func (s Server) UseRouters(handlers Handlers) {
-	// public paths
 	s.server.Add(http.MethodPost, "/login", handlers.SignIn)
 	s.server.Add(http.MethodPost, "/register", handlers.SignUp)
-	s.server.Add(http.MethodPost, "/books", handlers.GetBooksPublic)
-	// private paths
+	s.server.Add(http.MethodGet, "/books", handlers.GetBooks)
 	s.server.Add(http.MethodPost, "/files", handlers.UploadFile)
 	s.server.Add(http.MethodPost, "/books", handlers.CreateBook)
-	s.server.Add(http.MethodPost, "/books/:id", handlers.GetBook)
-	s.server.Add(http.MethodGet, "/books", handlers.GetBooksOfUser)
+	s.server.Add(http.MethodGet, "/books/:id", handlers.GetBook)
 	s.server.Add(http.MethodPatch, "/books/:id", handlers.UpdateBook)
 	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
-
-	s.server.Add(http.MethodGet, "/testAuth", handlers.TestAuth)
 }
 
 func (s Server) InitMiddlewares() {
-	// JWT Auth settings
 	s.server.Use(echojwt.WithConfig(echojwt.Config{
-		SigningKey: []byte(s.jwtSecret),
+		ErrorHandler: func(c echo.Context, err error) error {
+			if c.Request().URL.Path == "/books" && c.Request().Header.Get("Authorization") == "" {
+				return nil
+			}
+
+			return fmt.Errorf("JWT token invalid or expired")
+		},
+		ContinueOnIgnoredError: true,
+		SigningKey:             []byte(s.jwtSecret),
 		Skipper: func(c echo.Context) bool {
 			path := c.Request().URL.Path
-			if path == "/login" || path == "/register" || path == "/books" {
+			if path == "/login" || path == "/register" {
 				return true
 			}
 			return false
@@ -61,7 +61,6 @@ func (s Server) InitMiddlewares() {
 			return new(jwt_package.JwtCustomClaims)
 		},
 	}))
-	// CORS settings
 	s.server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*", "*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
