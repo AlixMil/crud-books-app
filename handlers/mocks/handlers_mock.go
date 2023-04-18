@@ -139,30 +139,30 @@ func (mr *MockServiceMockRecorder) SignUp(user interface{}) *gomock.Call {
 }
 
 // UpdateBook mocks base method.
-func (m *MockService) UpdateBook(bookId string, updater models.BookDataUpdater) error {
+func (m *MockService) UpdateBook(bookFileToken string, updater models.BookDataUpdater) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBook", bookId, updater)
+	ret := m.ctrl.Call(m, "UpdateBook", bookFileToken, updater)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateBook indicates an expected call of UpdateBook.
-func (mr *MockServiceMockRecorder) UpdateBook(bookId, updater interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateBook(bookFileToken, updater interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockService)(nil).UpdateBook), bookId, updater)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockService)(nil).UpdateBook), bookFileToken, updater)
 }
 
 // UploadFile mocks base method.
-func (m *MockService) UploadFile(file []byte) (string, error) {
+func (m *MockService) UploadFile(file []byte, fileName string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFile", file)
+	ret := m.ctrl.Call(m, "UploadFile", file, fileName)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadFile indicates an expected call of UploadFile.
-func (mr *MockServiceMockRecorder) UploadFile(file interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) UploadFile(file, fileName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockService)(nil).UploadFile), file)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockService)(nil).UploadFile), file, fileName)
 }

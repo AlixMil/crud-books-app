@@ -148,10 +148,10 @@ func (mr *MockDBMockRecorder) GetFileData(fileToken interface{}) *gomock.Call {
 }
 
 // GetListBooksOfUser mocks base method.
-func (m *MockDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error) {
+func (m *MockDB) GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetListBooksOfUser", paramsOfBooks)
-	ret0, _ := ret[0].(*[]models.BookData)
+	ret0, _ := ret[0].([]models.BookData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,10 +163,10 @@ func (mr *MockDBMockRecorder) GetListBooksOfUser(paramsOfBooks interface{}) *gom
 }
 
 // GetListBooksPublic mocks base method.
-func (m *MockDB) GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) (*[]models.BookData, error) {
+func (m *MockDB) GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetListBooksPublic", paramsOfBooks)
-	ret0, _ := ret[0].(*[]models.BookData)
+	ret0, _ := ret[0].([]models.BookData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -208,31 +208,31 @@ func (mr *MockDBMockRecorder) GetUserDataByInsertedId(userId interface{}) *gomoc
 }
 
 // UpdateBook mocks base method.
-func (m *MockDB) UpdateBook(bookId string, updater models.BookDataUpdater) error {
+func (m *MockDB) UpdateBook(bookFileToken string, updater models.BookDataUpdater) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBook", bookId, updater)
+	ret := m.ctrl.Call(m, "UpdateBook", bookFileToken, updater)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateBook indicates an expected call of UpdateBook.
-func (mr *MockDBMockRecorder) UpdateBook(bookId, updater interface{}) *gomock.Call {
+func (mr *MockDBMockRecorder) UpdateBook(bookFileToken, updater interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockDB)(nil).UpdateBook), bookId, updater)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBook", reflect.TypeOf((*MockDB)(nil).UpdateBook), bookFileToken, updater)
 }
 
 // UploadFileData mocks base method.
-func (m *MockDB) UploadFileData(fileToken, downloadPage string) error {
+func (m *MockDB) UploadFileData(fileData *models.FileData) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFileData", fileToken, downloadPage)
+	ret := m.ctrl.Call(m, "UploadFileData", fileData)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UploadFileData indicates an expected call of UploadFileData.
-func (mr *MockDBMockRecorder) UploadFileData(fileToken, downloadPage interface{}) *gomock.Call {
+func (mr *MockDBMockRecorder) UploadFileData(fileData interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFileData", reflect.TypeOf((*MockDB)(nil).UploadFileData), fileToken, downloadPage)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFileData", reflect.TypeOf((*MockDB)(nil).UploadFileData), fileData)
 }
 
 // MockStorager is a mock of Storager interface.
@@ -272,19 +272,34 @@ func (mr *MockStoragerMockRecorder) DeleteFile(fileToken interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFile", reflect.TypeOf((*MockStorager)(nil).DeleteFile), fileToken)
 }
 
-// UploadFile mocks base method.
-func (m *MockStorager) UploadFile(file []byte, isTest bool) (*models.UploadFileReturn, error) {
+// GetServerToUpload mocks base method.
+func (m *MockStorager) GetServerToUpload() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFile", file, isTest)
-	ret0, _ := ret[0].(*models.UploadFileReturn)
+	ret := m.ctrl.Call(m, "GetServerToUpload")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetServerToUpload indicates an expected call of GetServerToUpload.
+func (mr *MockStoragerMockRecorder) GetServerToUpload() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerToUpload", reflect.TypeOf((*MockStorager)(nil).GetServerToUpload))
+}
+
+// UploadFile mocks base method.
+func (m *MockStorager) UploadFile(servToUpload string, file []byte, fileName string) (*models.FileData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UploadFile", servToUpload, file, fileName)
+	ret0, _ := ret[0].(*models.FileData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadFile indicates an expected call of UploadFile.
-func (mr *MockStoragerMockRecorder) UploadFile(file, isTest interface{}) *gomock.Call {
+func (mr *MockStoragerMockRecorder) UploadFile(servToUpload, file, fileName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockStorager)(nil).UploadFile), file, isTest)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockStorager)(nil).UploadFile), servToUpload, file, fileName)
 }
 
 // MockHasher is a mock of Hasher interface.
