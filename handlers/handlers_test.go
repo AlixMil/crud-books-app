@@ -4,15 +4,18 @@ import (
 	"bytes"
 	mock_handlers "crud-books/handlers/mocks"
 	"crud-books/models"
+	jwt_package "crud-books/pkg/jwt"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/mock/gomock"
@@ -40,28 +43,43 @@ func getMocks(t *testing.T) mocks {
 	}
 }
 
-func getReqWRecJson(path, method string, buf *bytes.Buffer) (httptest.ResponseRecorder, echo.Context) {
+func getReqWithJson(path, method string, buf *bytes.Buffer) (httptest.ResponseRecorder, echo.Context) {
 	serv := echo.New()
 	req := httptest.NewRequest(method, path, buf)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := serv.NewContext(req, rec)
-	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId": defaultUserId,
+	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
+		UserId: defaultUserId,
 	})
 	c.Set("user", auth)
 	return *rec, c
 }
 
-func getReqWRecFormFile(path, method string, file []byte) (httptest.ResponseRecorder, echo.Context) {
+func getHeaderForFile(fileName string) textproto.MIMEHeader {
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition",
+		fmt.Sprintf(
+			`form-data; name="%s"; filename="%s"`,
+			"file",
+			fileName,
+		))
+	h.Set("Content-Type", "application/pdf")
+	return h
+}
+
+func getReqWithFormFile(path, method string, file []byte, fileName string) (httptest.ResponseRecorder, echo.Context) {
 	serv := echo.New()
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, _ := writer.CreateFormFile("file", "filename")
+	multipartCore := &bytes.Buffer{}
+	writer := multipart.NewWriter(multipartCore)
+
+	h := getHeaderForFile(fileName)
+
+	part, _ := writer.CreatePart(h)
 	r := bytes.NewReader(file)
 	io.Copy(part, r)
 
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequest(method, path, multipartCore)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	writer.Close()
@@ -70,6 +88,9 @@ func getReqWRecFormFile(path, method string, file []byte) (httptest.ResponseReco
 }
 
 func Test_EchoHandlers_SignUp(t *testing.T) {
+	type SignUpResponse struct {
+		Token string `json:"token"`
+	}
 	inp := models.UserDataInput{
 		Email:    userEmail,
 		Password: userPassword,
@@ -77,16 +98,20 @@ func Test_EchoHandlers_SignUp(t *testing.T) {
 	jwtTok := "askdlaksdlasd"
 	body, _ := json.Marshal(&inp)
 	buf := bytes.NewBuffer(body)
-	rec, c := getReqWRecJson("/register", http.MethodPost, buf)
+	rec, c := getReqWithJson("/register", http.MethodPost, buf)
 	mocks := getMocks(t)
 	mocks.serviceLayer.EXPECT().SignUp(inp).Return(jwtTok, nil)
 
 	h := New(mocks.serviceLayer)
 	err := h.SignUp(c)
+	require.NoError(t, err)
 
+	res := new(SignUpResponse)
+
+	err = json.Unmarshal(rec.Body.Bytes(), &res)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, fmt.Sprintf("Thanks for registration!\nYour auth token: bearer %s", jwtTok), rec.Body.String())
+	assert.Equal(t, jwtTok, res.Token)
 }
 
 func TestEchoHandlers_SignIn(t *testing.T) {
@@ -97,7 +122,7 @@ func TestEchoHandlers_SignIn(t *testing.T) {
 	body, _ := json.Marshal(&inp)
 	buf := bytes.NewBuffer(body)
 
-	rec, c := getReqWRecJson("/login", http.MethodPost, buf)
+	rec, c := getReqWithJson("/login", http.MethodPost, buf)
 
 	mocks := getMocks(t)
 	jwtToken := "41351adas"
@@ -116,21 +141,22 @@ func Test_UploadFile(t *testing.T) {
 	mocks := getMocks(t)
 	fileToken := "4819uikjsdkas"
 
-	file, err := os.Open("./testsData/file.pdf")
-	require.NoError(t, err)
+	file, _ := os.Open("./testsData/file.pdf")
 	defer file.Close()
-	fileByte, err := io.ReadAll(file)
-	require.NoError(t, err)
-	rec, c := getReqWRecFormFile("/files", http.MethodPost, fileByte)
-	mocks.serviceLayer.EXPECT().UploadFile(fileByte).Return(fileToken, nil)
+
+	bytesOfFile, _ := io.ReadAll(file)
+
+	rec, c := getReqWithFormFile("/files", http.MethodPost, bytesOfFile, file.Name())
+
+	fileFromForm, fileHeader, _ := c.Request().FormFile("file")
+	bytesOfFileForm, _ := io.ReadAll(fileFromForm)
+	mocks.serviceLayer.EXPECT().UploadFile(bytesOfFileForm, fileHeader.Filename).Return(fileToken, nil)
 
 	h := New(mocks.serviceLayer)
 
-	err = h.UploadFile(c)
+	err := h.UploadFile(c)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	res, _ := io.ReadAll(rec.Body)
-	assert.Equal(t, fileToken, string(res))
 }
 
 func Test_GetUserIdFromCtx(t *testing.T) {
@@ -138,8 +164,12 @@ func Test_GetUserIdFromCtx(t *testing.T) {
 		srv := echo.New()
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
-		tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"userId": defaultUserId,
+		tok := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
+			UserId: defaultUserId,
+			RegisteredClaims: jwt.RegisteredClaims{
+				Issuer:    "test",
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+			},
 		})
 		c := srv.NewContext(req, rec)
 		c.Set("user", tok)
@@ -156,7 +186,7 @@ func Test_GetUserIdFromCtx(t *testing.T) {
 		c := srv.NewContext(req, rec)
 
 		_, err := getUserIdFromCtx(c)
-		assert.EqualError(t, err, "get user id from ctx failed, jwt token missed")
+		assert.EqualError(t, err, "user context is null")
 	})
 
 }
@@ -176,7 +206,7 @@ func Test_CreateBook(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	b, _ := json.Marshal(&reqBody)
 	buf.Write(b)
-	rec, c := getReqWRecJson("/books", http.MethodPost, buf)
+	rec, c := getReqWithJson("/books", http.MethodPost, buf)
 	h := New(mocks.serviceLayer)
 
 	mocks.serviceLayer.EXPECT().GetUserByInsertedId(defaultUserId).Return(&userData, nil)
@@ -197,7 +227,7 @@ func Test_GetBook(t *testing.T) {
 		Description: "Terrible island stories",
 		FileURL:     "google.com",
 	}
-	rec, c := getReqWRecJson(fmt.Sprintf("/books/%s", bookId), http.MethodGet, &bytes.Buffer{})
+	rec, c := getReqWithJson(fmt.Sprintf("/books/%s", bookId), http.MethodGet, &bytes.Buffer{})
 	mocks := getMocks(t)
 
 	mocks.serviceLayer.EXPECT().GetBook(bookId).Return(&bookResp, nil)
@@ -232,14 +262,25 @@ func Test_GetBooksParamsFieldFiller(t *testing.T) {
 	assert.Equal(t, true, reflect.DeepEqual(&wantSort, sorting))
 }
 
-func getReqWRecCtxParams(wantFilt models.Filter, wantSort models.Sort) (*httptest.ResponseRecorder, *echo.Context) {
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/books?search=%s&limit=%d&sort=%s&direction=%s", wantFilt.Search, wantSort.Limit, wantSort.SortField, wantSort.Direction), nil)
+func getReqForGetBooksParams(wantFilt models.Filter, wantSort models.Sort, isAuth bool) (*httptest.ResponseRecorder, *echo.Context) {
+	req := httptest.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("/books?search=%s&limit=%d&sort=%s&direction=%s",
+			wantFilt.Search,
+			wantSort.Limit,
+			wantSort.SortField,
+			wantSort.Direction,
+		),
+		nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
-	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId": defaultUserId,
-	})
-	c.Set("user", auth)
+	if isAuth {
+		auth := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
+			UserId: defaultUserId,
+		})
+		c.Set("user", auth)
+	}
+
 	return rec, &c
 }
 
@@ -273,12 +314,12 @@ func Test_GetBooksPublic(t *testing.T) {
 		},
 	}
 
-	rec, c := getReqWRecCtxParams(wantFilt, wantSort)
+	rec, c := getReqForGetBooksParams(wantFilt, wantSort, false)
 
 	mocks := getMocks(t)
 	mocks.serviceLayer.EXPECT().GetBooks(wantFilt, wantSort).Return(&wantBooks, nil)
 	h := New(mocks.serviceLayer)
-	err := h.GetBooksPublic(*c)
+	err := h.GetBooks(*c)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	var received []models.BookData
@@ -322,12 +363,12 @@ func TestGetBooksOfUser(t *testing.T) {
 			OwnerEmail:  "joajsd@gmail.com4",
 		},
 	}
-	rec, c := getReqWRecCtxParams(wantFilt, wantSort)
+	rec, c := getReqForGetBooksParams(wantFilt, wantSort, true)
 	h := New(mocks.serviceLayer)
 	mocks.serviceLayer.EXPECT().GetUserByInsertedId(defaultUserId).Return(&userData, nil)
 	mocks.serviceLayer.EXPECT().GetBooks(wantFilt, wantSort).Return(&booksResponse, nil)
 
-	err := h.GetBooksOfUser(*c)
+	err := h.GetBooks(*c)
 	require.NoError(t, err)
 	var res *[]models.BookData
 
@@ -358,7 +399,8 @@ func Test_SignUp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	assert.Equal(t, fmt.Sprintf("Thanks for registration!\nYour auth token: %s", fmt.Sprintf("bearer %s", jwtTok)), rec.Body.String())
+	authHead := rec.Header().Get("Authorization")
+	assert.Equal(t, fmt.Sprintf("Bearer %s", jwtTok), authHead)
 }
 
 func Test_SignIn(t *testing.T) {
