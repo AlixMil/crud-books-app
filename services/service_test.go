@@ -3,8 +3,6 @@ package services
 import (
 	"crud-books/models"
 	mock_services "crud-books/services/mocks"
-	"mime/multipart"
-	"net/textproto"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -168,21 +166,19 @@ func Test_UploadFile(t *testing.T) {
 	mocks := getMocks(t)
 	defServToUpload := "google.com"
 	file := []byte("dkalsjdkjasdkas")
-	fh := multipart.FileHeader{
-		Filename: "name",
-		Header:   make(textproto.MIMEHeader),
-		Size:     12,
-	}
+
+	fileName := "namefile"
+
 	fileRet := models.FileData{
 		DownloadPage: "http://download.com",
 		Token:        "jfkajsdkj413513",
 	}
 	mocks.storager.EXPECT().GetServerToUpload().Return(defServToUpload, nil)
-	mocks.storager.EXPECT().UploadFile(defServToUpload, file, &fh).Return(&fileRet, nil)
+	mocks.storager.EXPECT().UploadFile(defServToUpload, file, fileName).Return(&fileRet, nil)
 	mocks.db.EXPECT().UploadFileData(&fileRet).Return(nil)
 
 	s := New(mocks.db, nil, mocks.storager, nil)
-	res, err := s.UploadFile(file, &fh)
+	res, err := s.UploadFile(file, fileName)
 	require.NoError(t, err)
 	assert.Equal(t, fileRet.Token, res)
 }
