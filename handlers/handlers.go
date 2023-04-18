@@ -6,7 +6,6 @@ import (
 	jwt_package "crud-books/pkg/jwt"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -25,7 +24,7 @@ type Service interface {
 	SignIn(user models.UserDataInput) (string, error)
 	SignUp(user models.UserDataInput) (string, error)
 	CreateBook(title, description, fileToken, userEmail string) (string, error)
-	UploadFile(file []byte, fileHeader *multipart.FileHeader) (string, error)
+	UploadFile(file []byte, fileName string) (string, error)
 	GetBook(bookToken string) (*models.GetBookResponse, error)
 	GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error)
 	UpdateBook(bookFileToken string, updater models.BookDataUpdater) error
@@ -40,7 +39,9 @@ func (e *EchoHandlers) UploadFile(c echo.Context) error {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("read multipart form failed, error: %s", err.Error()))
 	}
 
-	ext := filepath.Ext(fileHeader.Filename)
+	fileName := fileHeader.Filename
+
+	ext := filepath.Ext(fileName)
 	if ext != ".pdf" {
 		return c.String(http.StatusBadRequest, "provided file should be PDF")
 	}
@@ -52,7 +53,7 @@ func (e *EchoHandlers) UploadFile(c echo.Context) error {
 	}
 	buf.Write(byteCont)
 
-	fileToken, err := e.Services.UploadFile(buf.Bytes(), fileHeader)
+	fileToken, err := e.Services.UploadFile(buf.Bytes(), fileName)
 	if err != nil {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("upload file failed, error: %s", err.Error()))
 	}
@@ -192,6 +193,9 @@ func (e EchoHandlers) GetBooks(c echo.Context) error {
 		return c.JSON(http.StatusOK, books)
 	}
 	books, err := e.getBooksPrivate(c, userId)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, fmt.Sprintf("get books private error: %s", err.Error()))
+	}
 
 	return c.JSON(http.StatusOK, books)
 }
