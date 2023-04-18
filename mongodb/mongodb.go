@@ -319,7 +319,7 @@ func (m *MongoDB) Connect(cfg config.Config) error {
 }
 
 func (m MongoDB) Ping() error {
-	ctxPing, cancelPing := context.WithTimeout(context.Background(), time.Second*3)
+	ctxPing, cancelPing := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancelPing()
 
 	err := m.db.Client().Ping(ctxPing, readpref.Primary())
