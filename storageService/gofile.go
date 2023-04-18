@@ -154,8 +154,8 @@ func getBodyWriter(fileName string, file []byte, apiKey, folderId string) (*byte
 	return body, writer.FormDataContentType(), nil
 }
 
-func (s Storage) UploadFile(servForUpload string, file []byte, fileHeader *multipart.FileHeader) (*models.FileData, error) {
-	body, contentType, err := getBodyWriter(filepath.Base(fileHeader.Filename), file, s.apiKey, s.folderId)
+func (s Storage) UploadFile(servForUpload string, file []byte, fileName string) (*models.FileData, error) {
+	body, contentType, err := getBodyWriter(filepath.Base(fileName), file, s.apiKey, s.folderId)
 	if err != nil {
 		return nil, fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
 	}

@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"net/textproto"
 	"os"
 	"testing"
 
@@ -99,12 +97,6 @@ func Test_Service_UploadFile(t *testing.T) {
 	s := New(defaultConfig)
 	file, err := os.Open("./testsData/file.pdf")
 
-	fh := multipart.FileHeader{
-		Filename: file.Name(),
-		Header:   make(textproto.MIMEHeader),
-		Size:     int64(12),
-	}
-
 	require.NoError(t, err)
 	fileBytes, err := io.ReadAll(file)
 	require.NoError(t, err)
@@ -113,7 +105,7 @@ func Test_Service_UploadFile(t *testing.T) {
 
 	mockUploadServer := getTestServer(uploadFileServerHandler(t, fileBytes, testData))
 
-	got, err := s.UploadFile(mockUploadServer.URL, fileBytes, &fh)
+	got, err := s.UploadFile(mockUploadServer.URL, fileBytes, file.Name())
 
 	require.NoError(t, err)
 	assert.Equal(t, "https://gofile.io/d/Z19n9a", got.DownloadPage)
