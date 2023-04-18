@@ -3,7 +3,6 @@ package services
 import (
 	"crud-books/models"
 	"fmt"
-	"mime/multipart"
 )
 
 //go:generate mockgen -source=services.go -destination=mocks/services_mock.go
@@ -27,7 +26,7 @@ type DB interface {
 
 type Storager interface {
 	GetServerToUpload() (string, error)
-	UploadFile(servToUpload string, file []byte, fileHeader *multipart.FileHeader) (*models.FileData, error)
+	UploadFile(servToUpload string, file []byte, fileName string) (*models.FileData, error)
 	DeleteFile(fileToken string) error
 }
 
@@ -138,13 +137,13 @@ func (s Services) CreateBook(title, description, fileToken, userEmail string) (s
 	return fileToken, nil
 }
 
-func (s Services) UploadFile(file []byte, fileHeader *multipart.FileHeader) (string, error) {
+func (s Services) UploadFile(file []byte, fileName string) (string, error) {
 	servForUpload, err := s.storage.GetServerToUpload()
 	if err != nil {
 		return "", fmt.Errorf("getting cell server for upload file failed, error: %w", err)
 	}
 
-	fileData, err := s.storage.UploadFile(servForUpload, file, fileHeader)
+	fileData, err := s.storage.UploadFile(servForUpload, file, fileName)
 	if err != nil {
 		return "", fmt.Errorf("upload file to service failed, error: \n%w", err)
 	}
