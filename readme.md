@@ -270,3 +270,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 - [MongoDB](https://www.mongodb.com/)  
 
 - [JWT](https://jwt.io/)  
+
+## Покрытие тестами
+
+Total Coverage: 72.5%
