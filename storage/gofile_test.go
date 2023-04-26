@@ -1,4 +1,4 @@
-package storageService
+package storage
 
 import (
 	"crud-books/config"
@@ -20,7 +20,7 @@ var defaultConfig = config.Config{
 	GoFileFolderToken:   "123",
 }
 
-var testDeleteFileData = DeleteFileScheme{
+var testDeleteFileData = DeleteFileRequest{
 	ContentsId: "15133513",
 	Token:      defaultConfig.GoFileFolderToken,
 }
@@ -49,7 +49,7 @@ func getServerToUploadHandler(t *testing.T, url string) http.Handler {
 }
 
 func Test_Service_GetServerToUpload(t *testing.T) {
-	s := New(defaultConfig)
+	s := New(&defaultConfig)
 
 	const urlToUpload = "store3"
 
@@ -94,7 +94,7 @@ func Test_Service_UploadFile(t *testing.T) {
 		},
 	}
 
-	s := New(defaultConfig)
+	s := New(&defaultConfig)
 	file, err := os.Open("./testsData/file.pdf")
 
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func deleteFileHandler(t *testing.T) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		reqBody := new(DeleteFileScheme)
+		reqBody := new(DeleteFileRequest)
 		err = json.Unmarshal(body, &reqBody)
 		require.NoError(t, err)
 		assert.Equal(t, testDeleteFileData.ContentsId, reqBody.ContentsId)
@@ -126,7 +126,7 @@ func deleteFileHandler(t *testing.T) http.Handler {
 }
 
 func Test_DeleteFile(t *testing.T) {
-	s := New(defaultConfig)
+	s := New(&defaultConfig)
 
 	mockServ := getTestServer(deleteFileHandler(t))
 

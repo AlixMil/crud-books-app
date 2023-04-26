@@ -1,4 +1,4 @@
-package storageService
+package storage
 
 import (
 	"bytes"
@@ -13,20 +13,21 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"reflect"
-
-	"github.com/labstack/echo/v4"
 )
 
 const (
-	paramTokenName     = "token"
-	paramContentIdName = "contentsId"
-	paramFileName      = "file"
-	paramFolderIdName  = "folderId"
+	tokenName     = "token"
+	contentIdName = "contentsId"
+	fileName      = "file"
+
+	сontentTypeHeaderName = "Content-Type"
+	contentTypeJSON       = "application/json"
 )
 
 var (
-	urlGetServer  = "https://api.gofile.io/getServer"
-	urlDeleteFile = "https://api.gofile.io/deleteContent"
+	urlGetServer          = "https://api.gofile.io/getServer"
+	urlDeleteFile         = "https://api.gofile.io/deleteContent"
+	urlUploadFileTemplate = "https://%s.gofile.io/uploadFile"
 )
 
 type DataFromUploadFileResponse struct {
@@ -52,16 +53,14 @@ type ServerToUploadResponse struct {
 	Data   DataFromServerToUploadResponse `json:"data"`
 }
 
-type DeleteFileScheme struct {
+type DeleteFileRequest struct {
 	ContentsId string `json:"contentsId"`
 	Token      string `json:"token"`
 }
 
 type Storage struct {
-	StorageService string
-	apiKey         string
-	client         *http.Client
-	folderId       string
+	apiKey string
+	client *http.Client
 }
 
 type QueryParams struct {
@@ -114,7 +113,7 @@ func (s Storage) GetServerToUpload() (string, error) {
 		return "", fmt.Errorf("error in unmarshalling of req body in getServerToUpload: %w", err)
 	}
 
-	serverAddress := fmt.Sprintf("https://%s.gofile.io/uploadFile", jBody.Data.Server)
+	serverAddress := fmt.Sprintf(urlUploadFileTemplate, jBody.Data.Server)
 
 	return serverAddress, nil
 }
@@ -123,10 +122,11 @@ func createPdfFormFile(w *multipart.Writer, filename string) (io.Writer, error) 
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", filename))
 	h.Set("Content-Type", "application/pdf")
+
 	return w.CreatePart(h)
 }
 
-func getBodyWriter(fileName string, file []byte, apiKey, folderId string) (*bytes.Buffer, string, error) {
+func getBodyWriter(fileName string, file []byte, apiKey string) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	defer writer.Close()
@@ -141,12 +141,7 @@ func getBodyWriter(fileName string, file []byte, apiKey, folderId string) (*byte
 		return body, "", err
 	}
 
-	err = writer.WriteField(paramTokenName, apiKey)
-	if err != nil {
-		return body, "", err
-	}
-
-	err = writer.WriteField(paramFolderIdName, folderId)
+	err = writer.WriteField(tokenName, apiKey)
 	if err != nil {
 		return body, "", err
 	}
@@ -155,7 +150,7 @@ func getBodyWriter(fileName string, file []byte, apiKey, folderId string) (*byte
 }
 
 func (s Storage) UploadFile(servForUpload string, file []byte, fileName string) (*models.FileData, error) {
-	body, contentType, err := getBodyWriter(filepath.Base(fileName), file, s.apiKey, s.folderId)
+	body, contentType, err := getBodyWriter(filepath.Base(fileName), file, s.apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("getbodywrite in uploadfile throw error: %w", err)
 	}
@@ -200,7 +195,7 @@ func (s Storage) UploadFile(servForUpload string, file []byte, fileName string) 
 }
 
 func (s Storage) DeleteFile(fileToken string) error {
-	j := DeleteFileScheme{
+	j := DeleteFileRequest{
 		ContentsId: fileToken,
 		Token:      s.apiKey,
 	}
@@ -219,7 +214,7 @@ func (s Storage) DeleteFile(fileToken string) error {
 		return fmt.Errorf("error in request of delete file: %w", err)
 	}
 
-	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Add(сontentTypeHeaderName, contentTypeJSON)
 
 	_, err = s.client.Do(req)
 	if err != nil {
@@ -229,12 +224,10 @@ func (s Storage) DeleteFile(fileToken string) error {
 	return nil
 }
 
-func New(cfg config.Config) *Storage {
+func New(cfg *config.Config) *Storage {
 	s := Storage{
-		StorageService: "gofile",
-		apiKey:         cfg.GoFileServiceApiKey,
-		client:         http.DefaultClient,
-		folderId:       cfg.GoFileFolderToken,
+		apiKey: cfg.GoFileServiceApiKey,
+		client: http.DefaultClient,
 	}
 	return &s
 }
