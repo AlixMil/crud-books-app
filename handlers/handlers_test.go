@@ -4,7 +4,6 @@ import (
 	"bytes"
 	mock_handlers "crud-books/handlers/mocks"
 	"crud-books/models"
-	jwt_package "crud-books/pkg/jwt"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -49,8 +48,8 @@ func getReqWithJson(path, method string, buf *bytes.Buffer) (httptest.ResponseRe
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := serv.NewContext(req, rec)
-	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
-		UserId: defaultUserId,
+	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id": defaultUserId,
 	})
 	c.Set("user", auth)
 	return *rec, c
@@ -164,13 +163,11 @@ func Test_GetUserIdFromCtx(t *testing.T) {
 		srv := echo.New()
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
-		tok := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
-			UserId: defaultUserId,
-			RegisteredClaims: jwt.RegisteredClaims{
-				Issuer:    "test",
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
-			},
-		})
+		tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"id":  defaultUserId,
+			"exp": jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+		},
+		)
 		c := srv.NewContext(req, rec)
 		c.Set("user", tok)
 
@@ -209,7 +206,7 @@ func Test_CreateBook(t *testing.T) {
 	rec, c := getReqWithJson("/books", http.MethodPost, buf)
 	h := New(mocks.serviceLayer)
 
-	mocks.serviceLayer.EXPECT().GetUserByInsertedId(defaultUserId).Return(&userData, nil)
+	mocks.serviceLayer.EXPECT().GetUserById(defaultUserId).Return(&userData, nil)
 	mocks.serviceLayer.EXPECT().CreateBook(reqBody.Title, reqBody.Description, reqBody.FileToken, userData.Email).Return(reqBody.FileToken, nil)
 
 	err := h.CreateBook(c)
@@ -228,6 +225,8 @@ func Test_GetBook(t *testing.T) {
 		FileURL:     "google.com",
 	}
 	rec, c := getReqWithJson(fmt.Sprintf("/books/%s", bookId), http.MethodGet, &bytes.Buffer{})
+	c.SetParamNames("id")
+	c.SetParamValues(bookId)
 	mocks := getMocks(t)
 
 	mocks.serviceLayer.EXPECT().GetBook(bookId).Return(&bookResp, nil)
@@ -275,8 +274,8 @@ func getReqForGetBooksParams(wantFilt models.Filter, wantSort models.Sort, isAut
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	if isAuth {
-		auth := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt_package.JwtCustomClaims{
-			UserId: defaultUserId,
+		auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"id": defaultUserId,
 		})
 		c.Set("user", auth)
 	}
@@ -365,7 +364,7 @@ func TestGetBooksOfUser(t *testing.T) {
 	}
 	rec, c := getReqForGetBooksParams(wantFilt, wantSort, true)
 	h := New(mocks.serviceLayer)
-	mocks.serviceLayer.EXPECT().GetUserByInsertedId(defaultUserId).Return(&userData, nil)
+	mocks.serviceLayer.EXPECT().GetUserById(defaultUserId).Return(&userData, nil)
 	mocks.serviceLayer.EXPECT().GetBooks(wantFilt, wantSort).Return(&booksResponse, nil)
 
 	err := h.GetBooks(*c)
@@ -437,6 +436,8 @@ func Test_DeleteBook(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/books/%s", bookId), &bytes.Buffer{})
 	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	c := echo.New().NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(bookId)
 
 	mocks.serviceLayer.EXPECT().DeleteBook(bookId).Return(nil)
 
@@ -458,9 +459,12 @@ func Test_UpdateBook(t *testing.T) {
 	body, _ := json.Marshal(updater)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/books/%s", bookId), bytes.NewBuffer(body))
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/books/%s", bookId), bytes.NewBuffer(body))
 	req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	c := echo.New().NewContext(req, rec)
+	c.SetPath(fmt.Sprintf("/books/%s", bookId))
+	c.SetParamNames("id")
+	c.SetParamValues(bookId)
 
 	mocks.serviceLayer.EXPECT().UpdateBook(bookId, updater).Return(nil)
 
@@ -469,5 +473,5 @@ func Test_UpdateBook(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	assert.Equal(t, "Book data successfully updated!", rec.Body.String())
+	assert.Equal(t, "", rec.Body.String())
 }

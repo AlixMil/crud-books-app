@@ -7,26 +7,30 @@ import (
 
 //go:generate mockgen -source=services.go -destination=mocks/services_mock.go
 type Tokener interface {
-	GenerateTokens(userId string) (string, string, error)
+	GenAccessToken(userId string) (string, error)
+	GenRefreshToken() (string, error)
 }
 
 type DB interface {
 	CreateUser(email, passwordHash string) (string, error)
-	CreateBook(title, description, fileToken, emailOwner string) (string, error)
-	UpdateBook(bookFileToken string, updater models.BookDataUpdater) error
-	UploadFileData(fileData *models.FileData) error
 	GetUserData(email string) (*models.UserData, error)
-	GetBook(bookToken string) (*models.BookData, error)
+	GetUserDataById(userId string) (*models.UserData, error)
+
+	UploadFileData(fileData *models.FileData) error
 	GetFileData(fileToken string) (*models.FileData, error)
+
+	GetListBooks(filter models.Filter, sort models.Sort) ([]models.BookData, error)
+	GetListBooksUser(filter models.Filter, sort models.Sort) ([]models.BookData, error)
+
+	CreateBook(title, description, fileToken, emailOwner string) (string, error)
+	GetBook(bookToken string) (*models.BookData, error)
+	UpdateBook(bookFileToken string, updater models.BookDataUpdater) error
 	DeleteBook(tokenBook string) error
-	GetUserDataByInsertedId(userId string) (*models.UserData, error)
-	GetListBooksPublic(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error)
-	GetListBooksOfUser(paramsOfBooks *models.ValidateDataInGetLists) ([]models.BookData, error)
 }
 
 type Storager interface {
 	GetServerToUpload() (string, error)
-	UploadFile(servToUpload string, file []byte, fileName string) (*models.FileData, error)
+	UploadFile(servForUpload string, file []byte, fileName string) (*models.FileData, error)
 	DeleteFile(fileToken string) error
 }
 
@@ -36,73 +40,40 @@ type Hasher interface {
 }
 
 type Services struct {
-	db      DB
-	tokener Tokener
-	storage Storager
-	hasher  Hasher
+	db          DB
+	tokenEngine Tokener
+	hashEngine  Hasher
+	storage     Storager
 }
 
-const (
-	sortFieldDefaultParam = "title"
-	directionDefaultParam = 1
-	limitDefaultParam     = 10
-	maxSizeOfLimitParam   = 100
-)
-
-func getParamsWValidation(email, search, sortField, direction string, limit, offset int) *models.ValidateDataInGetLists {
-	var res models.ValidateDataInGetLists
-
-	res.Email = email
-	res.Search = search
-	res.Limit = limit
-	res.Offset = offset
-
-	if sortField != "title" && sortField != "date" {
-		res.SortField = sortFieldDefaultParam
-	} else if sortField == "title" {
-		res.SortField = "title"
-	} else if sortField == "date" {
-		res.SortField = "date"
+func New(db DB, tokener Tokener, storage Storager, hasher Hasher) *Services {
+	return &Services{
+		db:          db,
+		tokenEngine: tokener,
+		hashEngine:  hasher,
+		storage:     storage,
 	}
-
-	if direction != "desc" && direction != "asc" {
-		res.Direction = directionDefaultParam
-	} else if direction == "asc" {
-		res.Direction = 1
-	} else if direction == "desc" {
-		res.Direction = -1
-	}
-
-	if limit > maxSizeOfLimitParam {
-		res.Limit = maxSizeOfLimitParam
-	}
-
-	if limit == 0 || limit < 0 {
-		res.Limit = limitDefaultParam
-	}
-
-	return &res
 }
 
-func (s Services) SignIn(user models.UserDataInput) (string, error) {
+func (s *Services) SignIn(user models.UserDataInput) (string, error) {
 	userCred, err := s.db.GetUserData(user.Email)
 	if err != nil {
 		return "", fmt.Errorf("failed find user in db in sign in method, error: %w", err)
 	}
-	err = s.hasher.CompareHashWithPassword(user.Password, userCred.PasswordHash)
+	err = s.hashEngine.CompareHashWithPassword(user.Password, userCred.PasswordHash)
 	if err != nil {
 		return "", fmt.Errorf("password isn't equal")
 	}
-	jwtTok, _, err := s.tokener.GenerateTokens(userCred.Id)
+	accessToken, err := s.tokenEngine.GenAccessToken(userCred.Id)
 	if err != nil {
 		return "", fmt.Errorf("failed generate token in sign in method, error: %w", err)
 	}
 
-	return jwtTok, nil
+	return accessToken, nil
 }
 
-func (s Services) SignUp(user models.UserDataInput) (string, error) {
-	passwordHash, err := s.hasher.GetNewHash(user.Password)
+func (s *Services) SignUp(user models.UserDataInput) (string, error) {
+	passwordHash, err := s.hashEngine.GetNewHash(user.Password)
 	if err != nil {
 		return "", fmt.Errorf("getting new hash of password failed, error: %w", err)
 	}
@@ -112,23 +83,23 @@ func (s Services) SignUp(user models.UserDataInput) (string, error) {
 		return "", fmt.Errorf("create user DB proccess failed, error: %w", err)
 	}
 
-	jwtToken, _, err := s.tokener.GenerateTokens(userId)
+	accessToken, err := s.tokenEngine.GenAccessToken(userId)
 	if err != nil {
 		return "", fmt.Errorf("generation token failed, error: %w", err)
 	}
 
-	return jwtToken, nil
+	return accessToken, nil
 }
 
-func (s Services) GetUserByInsertedId(userId string) (*models.UserData, error) {
-	usData, err := s.db.GetUserDataByInsertedId(userId)
+func (s *Services) GetUserById(userId string) (*models.UserData, error) {
+	usData, err := s.db.GetUserDataById(userId)
 	if err != nil {
 		return nil, fmt.Errorf("userData by user id fetch failed, error: %w", err)
 	}
 	return usData, nil
 }
 
-func (s Services) CreateBook(title, description, fileToken, userEmail string) (string, error) {
+func (s *Services) CreateBook(title, description, fileToken, userEmail string) (string, error) {
 	fileToken, err := s.db.CreateBook(title, description, fileToken, userEmail)
 	if err != nil {
 		return "", fmt.Errorf("create book failed, error: %w", err)
@@ -137,7 +108,7 @@ func (s Services) CreateBook(title, description, fileToken, userEmail string) (s
 	return fileToken, nil
 }
 
-func (s Services) UploadFile(file []byte, fileName string) (string, error) {
+func (s *Services) UploadFile(file []byte, fileName string) (string, error) {
 	servForUpload, err := s.storage.GetServerToUpload()
 	if err != nil {
 		return "", fmt.Errorf("getting cell server for upload file failed, error: %w", err)
@@ -155,7 +126,7 @@ func (s Services) UploadFile(file []byte, fileName string) (string, error) {
 	return fileData.Token, nil
 }
 
-func (s Services) GetBook(bookToken string) (*models.GetBookResponse, error) {
+func (s *Services) GetBook(bookToken string) (*models.GetBookResponse, error) {
 	bookData, err := s.db.GetBook(bookToken)
 	if err != nil {
 		return nil, fmt.Errorf("get book in get book of service failed, error: %w", err)
@@ -167,18 +138,18 @@ func (s Services) GetBook(bookToken string) (*models.GetBookResponse, error) {
 	}, nil
 }
 
-func (s Services) GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
+func (s *Services) GetBooks(filter models.Filter, sorting models.Sort) (*[]models.BookData, error) {
 	var books []models.BookData
-	validateParams := getParamsWValidation(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
-	if validateParams.Email == "" {
-		booksArr, err := s.db.GetListBooksPublic(validateParams)
+
+	if filter.Email == "" {
+		booksArr, err := s.db.GetListBooks(filter, sorting)
 		if err != nil {
 			return nil, fmt.Errorf("get list of books public, error: %w", err)
 		}
 		books = booksArr
 	}
-	if validateParams.Email != "" {
-		booksArr, err := s.db.GetListBooksOfUser(validateParams)
+	if filter.Email != "" {
+		booksArr, err := s.db.GetListBooksUser(filter, sorting)
 		if err != nil {
 			return nil, fmt.Errorf("get list of books error: %w", err)
 		}
@@ -187,7 +158,7 @@ func (s Services) GetBooks(filter models.Filter, sorting models.Sort) (*[]models
 	return &books, nil
 }
 
-func (s Services) UpdateBook(bookFileToken string, updater models.BookDataUpdater) error {
+func (s *Services) UpdateBook(bookFileToken string, updater models.BookDataUpdater) error {
 	err := s.db.UpdateBook(bookFileToken, updater)
 	if err != nil {
 		return fmt.Errorf("updating failed, error: %w", err)
@@ -195,19 +166,10 @@ func (s Services) UpdateBook(bookFileToken string, updater models.BookDataUpdate
 	return nil
 }
 
-func (s Services) DeleteBook(bookId string) error {
+func (s *Services) DeleteBook(bookId string) error {
 	err := s.db.DeleteBook(bookId)
 	if err != nil {
 		return fmt.Errorf("delete book was failed, error: %w", err)
 	}
 	return nil
-}
-
-func New(db DB, tokener Tokener, storage Storager, hasher Hasher) *Services {
-	return &Services{
-		db:      db,
-		tokener: tokener,
-		storage: storage,
-		hasher:  hasher,
-	}
 }

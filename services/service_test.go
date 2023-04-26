@@ -10,60 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_ValidateParametersFunc(t *testing.T) {
-	t.Run("complete", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "title"
-		direction := "asc"
-		limit := 12
-		offset := 12
-
-		params := getParamsWValidation(email, search, sort, direction, limit, offset)
-		assert.Equal(t, params.Email, email)
-		assert.Equal(t, params.SortField, sort)
-		assert.Equal(t, params.Limit, limit)
-	})
-	t.Run("direction_is_default", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "title"
-		direction := "dfajks"
-		limit := 12
-		offset := 12
-
-		params := getParamsWValidation(email, search, sort, direction, limit, offset)
-
-		assert.Equal(t, directionDefaultParam, params.Direction)
-	})
-
-	t.Run("SortField_is_default", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "ajskda"
-		direction := "asc"
-		limit := 12
-		offset := 12
-
-		params := getParamsWValidation(email, search, sort, direction, limit, offset)
-
-		assert.Equal(t, sortFieldDefaultParam, params.SortField)
-	})
-
-	t.Run("limit_is_default", func(t *testing.T) {
-		email := "jjojas@gmail.com"
-		search := "1asdagasd"
-		sort := "date"
-		direction := "asc"
-		limit := 12343
-		offset := 12
-
-		params := getParamsWValidation(email, search, sort, direction, limit, offset)
-
-		assert.Equal(t, maxSizeOfLimitParam, params.Limit)
-	})
-}
-
 type mocks struct {
 	db       *mock_services.MockDB
 	hasher   *mock_services.MockHasher
@@ -96,7 +42,7 @@ func Test_SignIn(t *testing.T) {
 
 	mocks.db.EXPECT().GetUserData(userInp.Email).Return(&userData, nil)
 	mocks.hasher.EXPECT().CompareHashWithPassword(userInp.Password, userData.PasswordHash).Return(nil)
-	mocks.tokener.EXPECT().GenerateTokens(userData.Id).Return(token, "", nil)
+	mocks.tokener.EXPECT().GenAccessToken(userData.Id).Return(token, nil)
 
 	s := New(mocks.db, mocks.tokener, nil, mocks.hasher)
 	tokenRes, err := s.SignIn(userInp)
@@ -119,7 +65,7 @@ func Test_SignUp(t *testing.T) {
 
 	mocks.hasher.EXPECT().GetNewHash(userInp.Password).Return(hash, nil)
 	mocks.db.EXPECT().CreateUser(userInp.Email, hash).Return(userId, nil)
-	mocks.tokener.EXPECT().GenerateTokens(userId).Return(token, "", nil)
+	mocks.tokener.EXPECT().GenAccessToken(userId).Return(token, nil)
 
 	s := New(mocks.db, mocks.tokener, nil, mocks.hasher)
 	tokenRes, err := s.SignUp(userInp)
@@ -137,9 +83,9 @@ func Test_GetUserByInsertedId(t *testing.T) {
 		PasswordHash: "fjakjsdk2412",
 	}
 
-	mocks.db.EXPECT().GetUserDataByInsertedId(userId).Return(&userData, nil)
+	mocks.db.EXPECT().GetUserDataById(userId).Return(&userData, nil)
 	s := New(mocks.db, nil, nil, nil)
-	usData, err := s.GetUserByInsertedId(userId)
+	usData, err := s.GetUserById(userId)
 	require.NoError(t, err)
 	assert.Equal(t, &userData, usData)
 }
@@ -207,13 +153,13 @@ func Test_GetBook(t *testing.T) {
 	assert.Equal(t, want, res)
 }
 
-func Test_GetBooksPublic(t *testing.T) {
+func Test_GetBooks(t *testing.T) {
 	mocks := getMocks(t)
 	filter := models.Filter{
 		Email:  "jaksjdksjad@gmail.com",
 		Search: "skdjsk",
 	}
-	sorting := models.Sort{
+	sort := models.Sort{
 		SortField: "title",
 		Limit:     10,
 		Direction: "asc",
@@ -237,11 +183,10 @@ func Test_GetBooksPublic(t *testing.T) {
 			OwnerEmail:  "owner2",
 		},
 	}
-	validateParams := getParamsWValidation(filter.Email, filter.Search, sorting.SortField, sorting.Direction, sorting.Limit, sorting.Offset)
-	mocks.db.EXPECT().GetListBooksOfUser(validateParams).Return(want, nil)
+	mocks.db.EXPECT().GetListBooksUser(filter, sort).Return(want, nil)
 
 	s := New(mocks.db, nil, nil, nil)
-	books, err := s.GetBooks(filter, sorting)
+	books, err := s.GetBooks(filter, sort)
 	require.NoError(t, err)
 	assert.Equal(t, &want, books)
 }

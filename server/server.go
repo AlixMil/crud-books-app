@@ -1,20 +1,18 @@
 package server
 
 import (
-	jwt_package "crud-books/pkg/jwt"
 	"fmt"
 	"net/http"
 
-	"github.com/golang-jwt/jwt/v4"
-	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 type Server struct {
-	port      string
-	server    *echo.Echo
-	jwtSecret string
+	port          string
+	server        *echo.Echo
+	jwtSecret     string
+	jwtMiddleware echo.MiddlewareFunc
 }
 
 type Handlers interface {
@@ -31,36 +29,19 @@ type Handlers interface {
 func (s Server) UseRouters(handlers Handlers) {
 	s.server.Add(http.MethodPost, "/login", handlers.SignIn)
 	s.server.Add(http.MethodPost, "/register", handlers.SignUp)
-	s.server.Add(http.MethodGet, "/books", handlers.GetBooks)
+
 	s.server.Add(http.MethodPost, "/files", handlers.UploadFile)
-	s.server.Add(http.MethodPost, "/books", handlers.CreateBook)
-	s.server.Add(http.MethodGet, "/books/:id", handlers.GetBook)
-	s.server.Add(http.MethodPatch, "/books/:id", handlers.UpdateBook)
-	s.server.Add(http.MethodDelete, "/books/:id", handlers.DeleteBook)
+
+	books := s.server.Group("/books")
+	books.Add(http.MethodPost, "", handlers.CreateBook)
+	books.Add(http.MethodGet, "", handlers.GetBooks)
+	books.Add(http.MethodGet, "/:id", handlers.GetBook)
+	books.Add(http.MethodPut, "/:id", handlers.UpdateBook)
+	books.Add(http.MethodDelete, "/:id", handlers.DeleteBook)
 }
 
 func (s Server) InitMiddlewares() {
-	s.server.Use(echojwt.WithConfig(echojwt.Config{
-		ErrorHandler: func(c echo.Context, err error) error {
-			if c.Request().URL.Path == "/books" && c.Request().Header.Get("Authorization") == "" {
-				return nil
-			}
-
-			return fmt.Errorf("JWT token invalid or expired")
-		},
-		ContinueOnIgnoredError: true,
-		SigningKey:             []byte(s.jwtSecret),
-		Skipper: func(c echo.Context) bool {
-			path := c.Request().URL.Path
-			if path == "/login" || path == "/register" {
-				return true
-			}
-			return false
-		},
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(jwt_package.JwtCustomClaims)
-		},
-	}))
+	s.server.Use(s.jwtMiddleware)
 	s.server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*", "*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
@@ -71,11 +52,12 @@ func (s Server) Start() error {
 	return s.server.Start(fmt.Sprintf(":%s", s.port))
 }
 
-func New(port string, JwtSecret string) Server {
+func New(port string, JwtSecret string, JwtMiddleware echo.MiddlewareFunc) Server {
 	server := Server{
-		port:      port,
-		server:    echo.New(),
-		jwtSecret: JwtSecret,
+		port:          port,
+		server:        echo.New(),
+		jwtSecret:     JwtSecret,
+		jwtMiddleware: JwtMiddleware,
 	}
 
 	return server
