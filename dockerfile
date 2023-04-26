@@ -11,5 +11,4 @@ RUN GOOS=linux go build -o ./bin/app ./cmd/main.go
 FROM alpine:latest AS runner
 
 COPY --from=builder /app/bin/app/ . 
-COPY --from=builder /app/.env .
 CMD [ "./app" ]

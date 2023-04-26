@@ -10,13 +10,18 @@ services:
       - 4001:4001
     depends_on:
       - mongodb
-    volumes:
-      - ./bin/:/root/
-    env_file:
-      - .env
     environment:
       - DB_HOST=mongodb
       - DB_PORT=27017
+      - SERVER_PORT=4001
+      - GOFILE_SERVICE_API_KEY=GOFILE_SERVICE_API_KEY
+      - GOFILE_FOLDER_TOKEN=GOFILE_FOLDER_TOKEN
+      - DB_NAME=crudbooks
+      - DB_LOGIN=admin
+      - DB_PWD=0000
+      - JWT_SECRET=JWT_SECRET
+      - ACCESS_TOKEN_TTL=10m
+      - REFRESH_TOKEN_TTL=24h
 
   mongodb:
     image: mongo:latest
