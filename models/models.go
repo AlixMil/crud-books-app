@@ -44,13 +44,13 @@ type Sort struct {
 	Offset    int
 }
 
-type ValidateDataInGetLists struct {
+type ParamsAfterValidation struct {
 	Email  string
 	Search string
 
 	SortField string
-	Limit     int
 	Direction int
+	Limit     int
 
 	Offset int
 }
