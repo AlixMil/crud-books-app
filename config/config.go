@@ -1,16 +1,12 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"strconv"
-
-	"github.com/joho/godotenv"
+	"time"
 )
 
 type Config struct {
-	ServerHost          string
 	ServerPort          string
 	GoFileServiceApiKey string
 	GoFileFolderToken   string
@@ -19,22 +15,23 @@ type Config struct {
 	DatabaseHost        string
 	DatabaseLogin       string
 	DatabasePwd         string
-	JWTSecret           string
-	JWTTokenTTL         int
+	JwtSecret           string
+	AccessTokenTTL      time.Duration
+	RefreshTokenTTL     time.Duration
 }
 
 func New() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
-		return &Config{}, err
+	AccessTokenTTL, err := time.ParseDuration(os.Getenv("ACCESS_TOKEN_TTL"))
+	if err != nil {
+		return nil, fmt.Errorf("parse access token duration: %w", err)
 	}
 
-	JWTTokenTTL, err := strconv.Atoi(os.Getenv("JWT_TOKEN_TTL"))
+	RefreshTokenTTL, err := time.ParseDuration(os.Getenv("REFRESH_TOKEN_TTL"))
 	if err != nil {
-		return nil, fmt.Errorf("failed convert to in of JWT_TOKEN_TTL, error: %w", err)
+		return nil, fmt.Errorf("parse refresh token duration: %w", err)
 	}
 
 	cfg := Config{
-		ServerHost:          os.Getenv("SERVER_HOST"),
 		ServerPort:          os.Getenv("SERVER_PORT"),
 		GoFileServiceApiKey: os.Getenv("GOFILE_SERVICE_API_KEY"),
 		GoFileFolderToken:   os.Getenv("GOFILE_FOLDER_TOKEN"),
@@ -43,43 +40,47 @@ func New() (*Config, error) {
 		DatabaseHost:        os.Getenv("DB_HOST"),
 		DatabaseLogin:       os.Getenv("DB_LOGIN"),
 		DatabasePwd:         os.Getenv("DB_PWD"),
-		JWTSecret:           os.Getenv("JWT_SECRET"),
-		JWTTokenTTL:         JWTTokenTTL,
-	}
-
-	if cfg.ServerHost == "" {
-		return nil, errors.New("serverhost env is empty")
-	}
-	if cfg.ServerPort == "" {
-		return nil, errors.New("serverport env is empty")
-	}
-	if cfg.GoFileServiceApiKey == "" {
-		return nil, errors.New("goFileServiceApiKey env is empty")
-	}
-	if cfg.GoFileFolderToken == "" {
-		return nil, errors.New("goFileFolderToken env is empty")
-	}
-	if cfg.DatabaseName == "" {
-		return nil, errors.New("databaseName env is empty")
-	}
-	if cfg.DatabasePort == "" {
-		return nil, errors.New("databasePort env is empty")
-	}
-	if cfg.DatabaseHost == "" {
-		return nil, errors.New("databaseHost env is empty")
-	}
-	if cfg.DatabaseLogin == "" {
-		return nil, errors.New("databaseLogin env is empty")
-	}
-	if cfg.JWTSecret == "" {
-		return nil, errors.New("databasePwd env is empty")
-	}
-	if cfg.DatabaseHost == "" {
-		return nil, errors.New("jwtSecret env is empty")
-	}
-	if cfg.JWTTokenTTL == 0 {
-		return nil, errors.New("jwtTokenTTL env is empty or null")
+		JwtSecret:           os.Getenv("JWT_SECRET"),
+		AccessTokenTTL:      AccessTokenTTL,
+		RefreshTokenTTL:     RefreshTokenTTL,
 	}
 
 	return &cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if c.ServerPort == "" {
+		return fmt.Errorf("serverport env is empty")
+	}
+	if c.GoFileServiceApiKey == "" {
+		return fmt.Errorf("goFileServiceApiKey env is empty")
+	}
+	if c.GoFileFolderToken == "" {
+		return fmt.Errorf("goFileFolderToken env is empty")
+	}
+	if c.DatabaseName == "" {
+		return fmt.Errorf("databaseName env is empty")
+	}
+	if c.DatabasePort == "" {
+		return fmt.Errorf("databasePort env is empty")
+	}
+	if c.DatabaseHost == "" {
+		return fmt.Errorf("databaseHost env is empty")
+	}
+	if c.DatabaseLogin == "" {
+		return fmt.Errorf("databaseLogin env is empty")
+	}
+	if c.JwtSecret == "" {
+		return fmt.Errorf("databasePwd env is empty")
+	}
+	if c.DatabaseHost == "" {
+		return fmt.Errorf("jwtSecret env is empty")
+	}
+	if c.AccessTokenTTL == 0 {
+		return fmt.Errorf("accessTokenTTL env is empty or null")
+	}
+	if c.RefreshTokenTTL == 0 {
+		return fmt.Errorf("refreshTokenTTL env is empty or null")
+	}
+	return nil
 }
