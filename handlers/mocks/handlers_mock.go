@@ -93,19 +93,19 @@ func (mr *MockServiceMockRecorder) GetBooks(filter, sorting interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBooks", reflect.TypeOf((*MockService)(nil).GetBooks), filter, sorting)
 }
 
-// GetUserByInsertedId mocks base method.
-func (m *MockService) GetUserByInsertedId(userId string) (*models.UserData, error) {
+// GetUserById mocks base method.
+func (m *MockService) GetUserById(userId string) (*models.UserData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByInsertedId", userId)
+	ret := m.ctrl.Call(m, "GetUserById", userId)
 	ret0, _ := ret[0].(*models.UserData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUserByInsertedId indicates an expected call of GetUserByInsertedId.
-func (mr *MockServiceMockRecorder) GetUserByInsertedId(userId interface{}) *gomock.Call {
+// GetUserById indicates an expected call of GetUserById.
+func (mr *MockServiceMockRecorder) GetUserById(userId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByInsertedId", reflect.TypeOf((*MockService)(nil).GetUserByInsertedId), userId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserById", reflect.TypeOf((*MockService)(nil).GetUserById), userId)
 }
 
 // SignIn mocks base method.
